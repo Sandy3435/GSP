@@ -32,12 +32,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
+    console.log('[Auth] refresh start')
     const u = await getCurrentUser()
+    console.log('[Auth] user:', u?.email)
     setUser(u)
     if (u) {
       let p = await getProfile(u.id)
+      console.log('[Auth] profile:', p)
       if (!p) {
-        // Create a default profile if missing (e.g., trigger didn't fire)
+        console.log('[Auth] creating default profile')
         const defaultProfile: Profile = {
           userId: u.id,
           firstName: u.name.split(' ')[0] ?? '',
@@ -63,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setProfile(null)
     }
+    console.log('[Auth] refresh done')
   }, [])
 
   useEffect(() => {
@@ -80,6 +84,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       const res = await authLogin(email, password)
       if (res.ok) {
+        for (let i = 0; i < 10; i++) {
+          const { data } = await supabase.auth.getSession()
+          if (data.session) break
+          await new Promise((r) => setTimeout(r, 100))
+        }
         await refresh()
         return { ok: true }
       }
@@ -92,6 +101,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (input: { name: string; email: string; password: string; adminCode?: string }) => {
       const res = await authSignup(input)
       if (res.ok) {
+        // Wait for session to be persisted (Supabase signUp may be async)
+        for (let i = 0; i < 10; i++) {
+          const { data } = await supabase.auth.getSession()
+          if (data.session) break
+          await new Promise((r) => setTimeout(r, 100))
+        }
         await refresh()
         return { ok: true }
       }

@@ -34,7 +34,7 @@ const INTERESTS = [
 ]
 
 export default function ProfilePage() {
-  const { user, profile, updateProfile, updateName } = useAuth()
+  const { user, profile, updateProfile } = useAuth()
 
   const [firstName, setFirstName] = useState(profile?.firstName ?? '')
   const [lastName, setLastName] = useState(profile?.lastName ?? '')
@@ -51,6 +51,9 @@ export default function ProfilePage() {
   const [targetSchools, setTargetSchools] = useState(profile?.targetSchools?.join(', ') ?? '')
   const [location, setLocation] = useState(profile?.location ?? '')
   const [saved, setSaved] = useState(false)
+  const [opps, setOpps] = useState<Opportunity[]>([])
+  const [adminCode, setAdminCode] = useState('')
+  const [adminMsg, setAdminMsg] = useState('')
 
   useEffect(() => {
     if (!profile) return
@@ -69,6 +72,10 @@ export default function ProfilePage() {
     setTargetSchools(profile.targetSchools.join(', '))
     setLocation(profile.location)
   }, [profile])
+
+  useEffect(() => {
+    getOpportunities().then(setOpps)
+  }, [])
 
   if (!user || !profile) {
     return <Navigate to="/login" replace />
@@ -103,18 +110,26 @@ export default function ProfilePage() {
       avatarUrl: profile.avatarUrl,
     }
     updateProfile(updated)
-    updateName(`${firstName} ${lastName}`.trim() || user.name)
     setSaved(true)
     window.setTimeout(() => setSaved(false), 2000)
   }
 
-  const [opps, setOpps] = useState<Opportunity[]>([])
+  const handleRedeemAdmin = async () => {
+    setAdminMsg('')
+    const { supabase } = await import('../lib/supabase')
+    const { data, error } = await supabase.rpc('redeem_admin_code', { code: adminCode.trim() })
+    if (error) {
+      setAdminMsg('Failed: ' + error.message)
+      return
+    }
+    if (data?.ok) {
+      setAdminMsg('Admin access granted! Reloading…')
+      window.setTimeout(() => window.location.reload(), 800)
+    } else {
+      setAdminMsg(data?.error ?? 'Invalid admin code.')
+    }
+  }
 
-  useEffect(() => {
-    getOpportunities().then(setOpps)
-  }, [])
-
-  // Matched opportunities preview
   const matched = opps
     .map((opp) => ({
       opp,
@@ -190,8 +205,41 @@ export default function ProfilePage() {
             </span>
           </div>
         </div>
+      </section>
 
-        {/* Completion */}
+      {/* Admin code redemption */}
+      {user.role !== 'admin' && (
+        <section className="flex flex-col gap-2 rounded-2xl bg-surface-container-low p-space-md shadow-sm">
+          <p className="font-label-xs text-label-xs font-bold uppercase tracking-wider text-on-surface-variant">
+            Redeem admin code
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={adminCode}
+              onChange={(e) => setAdminCode(e.target.value)}
+              placeholder="Admin code"
+              className="h-10 flex-1 rounded-lg bg-surface-container-lowest px-3 font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary/40"
+            />
+            <button
+              type="button"
+              onClick={handleRedeemAdmin}
+              className="flex h-10 items-center gap-1.5 rounded-lg bg-primary-container px-3 font-label-sm text-label-sm font-bold text-on-primary shadow-sm transition-all hover:opacity-95 active:scale-95"
+            >
+              <span className="material-symbols-outlined text-[16px]">verified</span>
+              Redeem
+            </button>
+          </div>
+          {adminMsg && (
+            <p className={`font-label-xs text-label-xs ${adminMsg.includes('granted') ? 'text-secondary' : 'text-error'}`}>
+              {adminMsg}
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* Completion */}
+      <section className="flex flex-col gap-3 rounded-2xl bg-surface-container-lowest p-space-lg shadow-sm">
         <div className="space-y-1">
           <div className="flex items-center justify-between font-label-xs text-label-xs">
             <span className="font-semibold text-on-surface">Profile completion</span>

@@ -80,7 +80,17 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   if (isSupabaseConfigured) {
     const { data } = await supabase.auth.getUser()
     if (!data.user) return null
-    return toAuthUser(data.user)
+    const base = toAuthUser(data.user)
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('role, name')
+      .eq('id', data.user.id)
+      .single()
+    if (prof) {
+      base.role = (prof.role as UserRole) ?? base.role
+      if (prof.name) base.name = prof.name
+    }
+    return base
   }
   // mock
   const id = localStorage.getItem(SESSION_KEY)
@@ -166,7 +176,7 @@ export async function saveProfile(profile: Profile): Promise<void> {
         avatar_url: profile.avatarUrl,
         updated_at: new Date().toISOString(),
       })
-    if (error) console.error('saveProfile error:', error.message)
+    if (error) console.error('saveProfile error:', error.message, error.code, error.details)
     return
   }
   const profiles = readJson<Profile[]>(PROFILES_KEY, [])
