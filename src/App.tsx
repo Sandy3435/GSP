@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Header from './components/Header'
 import Sidebar from './components/Sidebar'
-import BottomNav from './components/BottomNav'
 import HomePage from './pages/HomePage'
 import ServicesPage from './pages/ServicesPage'
 import SprintsPage from './pages/SprintsPage'
@@ -18,7 +17,7 @@ function AppShell() {
       <Header onOpenSidebar={() => setSidebarOpen(true)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <main className="flex-1 overflow-x-hidden px-margin pb-24 pt-20">
+      <main className="flex-1 overflow-x-hidden px-margin pb-8 pt-20">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/services" element={<ServicesPage />} />
@@ -29,8 +28,6 @@ function AppShell() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-
-      <BottomNav />
     </div>
   )
 }
