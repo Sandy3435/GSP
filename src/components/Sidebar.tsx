@@ -1,14 +1,6 @@
 import { NavLink } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import Logo from './Logo'
-
-const navItems = [
-  { to: '/', label: 'Home', icon: 'dashboard' },
-  { to: '/courses', label: 'Courses', icon: 'auto_stories' },
-  { to: '/opportunities', label: 'Opportunities', icon: 'explore' },
-  { to: '/community', label: 'Community', icon: 'forum' },
-  { to: '/sprints', label: 'Sprints', icon: 'school' },
-  { to: '/services', label: 'Services', icon: 'handshake' },
-]
 
 interface SidebarProps {
   open: boolean
@@ -16,6 +8,21 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
+  const { user, logout } = useAuth()
+
+  const navItems = [
+    { to: '/', label: 'Home', icon: 'dashboard' },
+    { to: '/profile', label: 'Profile', icon: 'person' },
+    { to: '/courses', label: 'Courses', icon: 'auto_stories' },
+    { to: '/opportunities', label: 'Opportunities', icon: 'explore' },
+    { to: '/community', label: 'Community', icon: 'forum' },
+    { to: '/sprints', label: 'Sprints', icon: 'school' },
+    { to: '/services', label: 'Services', icon: 'handshake' },
+    ...(user?.role === 'admin'
+      ? [{ to: '/admin', label: 'Admin', icon: 'admin_panel_settings' }]
+      : []),
+  ]
+
   return (
     <div
       className={`fixed inset-0 z-50 mx-auto max-w-[430px] ${open ? '' : 'pointer-events-none'}`}
@@ -106,15 +113,29 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         {/* Footer */}
         <div className="border-t border-surface-container bg-surface-container-lowest p-space-md">
           <div className="flex items-center justify-between">
-            <Logo withWordmark />
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-container font-label-sm text-label-sm font-bold text-on-primary">
+                {(user?.name ?? 'G').slice(0, 1).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate font-label-sm text-label-sm font-bold text-on-surface">
+                  {user?.name ?? 'Guest'}
+                </p>
+                <p className="truncate font-label-xs text-label-xs text-on-surface-variant">
+                  {user?.role ?? 'visitor'}
+                </p>
+              </div>
+            </div>
             <button
               type="button"
-              aria-label="Account settings"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"
+              onClick={() => {
+                logout()
+                onClose()
+              }}
+              aria-label="Sign out"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container hover:text-error"
             >
-              <span className="material-symbols-outlined text-[18px]">
-                settings
-              </span>
+              <span className="material-symbols-outlined text-[18px]">logout</span>
             </button>
           </div>
         </div>

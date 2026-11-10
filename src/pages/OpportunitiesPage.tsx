@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { opportunities } from '../data/mockData'
+import { getOpportunities } from '../lib/store'
 import type { Opportunity } from '../data/mockData'
 
 type FilterId = 'all' | 'high-match' | 'full-ride' | 'fly-in' | 'no-essay' | 'deadlines'
@@ -47,8 +47,9 @@ export default function OpportunitiesPage() {
   )
 
   const visible = useMemo(() => {
+    const opps = getOpportunities()
     const q = query.trim().toLowerCase()
-    const list = opportunities.filter(
+    const list = opps.filter(
       (opp) =>
         matchesFilter(opp, filter) &&
         (!q ||

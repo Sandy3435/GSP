@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 
 const routeLabels: Record<string, string> = {
   '/': 'Home',
@@ -15,7 +16,9 @@ interface HeaderProps {
 
 export default function Header({ onOpenSidebar }: HeaderProps) {
   const { pathname } = useLocation()
+  const { user, logout } = useAuth()
   const label = routeLabels[pathname] ?? 'GSP'
+  const initial = (user?.name ?? 'G').slice(0, 1).toUpperCase()
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 bg-surface/85 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.03)] backdrop-blur-xl">
@@ -37,6 +40,15 @@ export default function Header({ onOpenSidebar }: HeaderProps) {
         <div className="flex items-center gap-space-sm">
           <button
             type="button"
+            onClick={logout}
+            aria-label="Sign out"
+            title="Sign out"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container hover:text-error focus:outline-none"
+          >
+            <span className="material-symbols-outlined text-[20px]">logout</span>
+          </button>
+          <button
+            type="button"
             aria-label="Notifications"
             className="relative flex h-11 w-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container/60 hover:text-on-surface focus:outline-none"
           >
@@ -50,7 +62,7 @@ export default function Header({ onOpenSidebar }: HeaderProps) {
               className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-container font-label-sm text-label-sm font-bold text-on-primary"
               aria-label="Profile"
             >
-              M
+              {initial}
             </div>
           </div>
         </div>

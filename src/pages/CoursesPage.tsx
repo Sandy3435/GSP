@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { courseTabs, courses } from '../data/mockData'
+import { courseTabs } from '../data/mockData'
+import { getCourses } from '../lib/store'
 import type { CourseCategory } from '../data/mockData'
 import { ProgressRing } from '../components/ui'
 
@@ -8,8 +9,9 @@ export default function CoursesPage() {
   const [query, setQuery] = useState('')
 
   const visible = useMemo(() => {
+    const courseList = getCourses()
     const q = query.trim().toLowerCase()
-    return courses.filter((course) => {
+    return courseList.filter((course) => {
       const matchesTab =
         tab === 'all' ||
         (tab === 'progress'

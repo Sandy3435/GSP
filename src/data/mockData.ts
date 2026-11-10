@@ -558,6 +558,16 @@ export interface Opportunity {
   fullRide?: boolean
   flyIn?: boolean
   noEssay?: boolean
+  eligibility?: {
+    minGpa?: number
+    majors?: string[]
+    firstGenOnly?: boolean
+    lowIncomeOnly?: boolean
+    urmOnly?: boolean
+    interests?: string[]
+    states?: string[]
+    graduationYears?: number[]
+  }
 }
 
 export const opportunities: Opportunity[] = [
@@ -573,6 +583,12 @@ export const opportunities: Opportunity[] = [
     deadline: 'Sep 26',
     daysLeft: 14,
     fullRide: true,
+    eligibility: {
+      firstGenOnly: true,
+      lowIncomeOnly: true,
+      minGpa: 3.5,
+      graduationYears: [2026, 2027],
+    },
   },
   {
     id: 'opp-amherst',
@@ -610,6 +626,11 @@ export const opportunities: Opportunity[] = [
       'Combine on-campus scientific theory course with off-campus work in science and technology research with world-renowned scientists.',
     deadline: 'Dec 15',
     daysLeft: 62,
+    eligibility: {
+      majors: ['Biology / Pre-Med', 'Engineering', 'Computer Science'],
+      interests: ['STEM Research'],
+      minGpa: 3.7,
+    },
   },
   {
     id: 'opp-coolidge',
@@ -636,6 +657,11 @@ export const opportunities: Opportunity[] = [
     deadline: 'Sep 30',
     daysLeft: 18,
     fullRide: true,
+    eligibility: {
+      urmOnly: true,
+      minGpa: 3.3,
+      interests: ['Leadership', 'Community Service'],
+    },
   },
   {
     id: 'opp-mit-esap',

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { serviceCategories, services } from '../data/mockData'
+import { serviceCategories } from '../data/mockData'
+import { getServices } from '../lib/store'
 import type { ServiceCategory } from '../data/mockData'
 
 const badgeTones: Record<string, string> = {
@@ -20,8 +21,9 @@ export default function ServicesPage() {
   const [query, setQuery] = useState('')
 
   const visible = useMemo(() => {
+    const svcList = getServices()
     const q = query.trim().toLowerCase()
-    return services.filter((svc) => {
+    return svcList.filter((svc) => {
       const matchesCategory = category === 'all' || svc.category === category
       const matchesQuery =
         !q ||
