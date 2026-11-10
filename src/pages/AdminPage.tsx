@@ -4,15 +4,18 @@ import { getOpportunities, saveOpportunity, deleteOpportunity } from '../lib/sto
 import { getCourses, saveCourse, deleteCourse } from '../lib/store'
 import { getServices, saveService, deleteService } from '../lib/store'
 import { listUsers, getProfile } from '../lib/auth'
+import { saveInfoSession, deleteInfoSession, getInfoSessions } from '../lib/platformStore'
+import { saveSprint, deleteSprint, getSprints } from '../lib/platformStore'
 import type { Opportunity, Course, Service } from '../data/mockData'
-import type { OpportunityEligibility } from '../lib/matching'
 import { SectionHeader } from '../components/ui'
 
-type AdminTab = 'overview' | 'opportunities' | 'courses' | 'services' | 'users'
+type AdminTab = 'overview' | 'opportunities' | 'sessions' | 'sprints' | 'courses' | 'services' | 'users'
 
 const tabs: { id: AdminTab; label: string; icon: string }[] = [
   { id: 'overview', label: 'Overview', icon: 'dashboard' },
   { id: 'opportunities', label: 'Opportunities', icon: 'explore' },
+  { id: 'sessions', label: 'Info Sessions', icon: 'sensors' },
+  { id: 'sprints', label: 'Sprints', icon: 'school' },
   { id: 'courses', label: 'Courses', icon: 'auto_stories' },
   { id: 'services', label: 'Services', icon: 'handshake' },
   { id: 'users', label: 'Users', icon: 'group' },
@@ -27,13 +30,6 @@ export default function AdminPage() {
   const [services, setServices] = useState<Service[]>([])
   const [users, setUsers] = useState<{ id: string; name: string; email: string; createdAt: string }[]>([])
 
-  useEffect(() => {
-    getOpportunities().then(setOpps)
-    getCourses().then(setCourses)
-    getServices().then(setServices)
-    listUsers().then((u) => setUsers(u.filter((x) => x.role === 'student') as { id: string; name: string; email: string; createdAt: string }[]))
-  }, [])
-
   const reload = () => {
     getOpportunities().then(setOpps)
     getCourses().then(setCourses)
@@ -41,6 +37,14 @@ export default function AdminPage() {
     listUsers().then((u) => setUsers(u.filter((x) => x.role === 'student') as { id: string; name: string; email: string; createdAt: string }[]))
     forceUpdate((n) => n + 1)
   }
+
+  useEffect(() => {
+    getOpportunities().then(setOpps)
+    getCourses().then(setCourses)
+    getServices().then(setServices)
+    listUsers().then((u) => setUsers(u.filter((x) => x.role === 'student') as { id: string; name: string; email: string; createdAt: string }[]))
+  }, [])
+
   if (!user || user.role !== 'admin') {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-space-xl text-center">
@@ -69,7 +73,6 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="no-scrollbar flex items-center gap-1 overflow-x-auto rounded-xl bg-surface-container p-1">
         {tabs.map((t) => (
           <button
@@ -92,6 +95,8 @@ export default function AdminPage() {
         <Overview opps={opps} courses={courses} services={services} users={users} />
       )}
       {tab === 'opportunities' && <OpportunitiesAdmin opps={opps} onChange={reload} />}
+      {tab === 'sessions' && <SessionsAdmin onChange={reload} />}
+      {tab === 'sprints' && <SprintsAdmin onChange={reload} />}
       {tab === 'courses' && <CoursesAdmin courses={courses} onChange={reload} />}
       {tab === 'services' && <ServicesAdmin services={services} onChange={reload} />}
       {tab === 'users' && <UsersAdmin users={users} />}
@@ -153,25 +158,14 @@ function OpportunitiesAdmin({ opps, onChange }: { opps: Opportunity[]; onChange:
   const [interests, setInterests] = useState('')
 
   const reset = () => {
-    setTitle('')
-    setAward('')
-    setSummary('')
-    setDeadline('')
-    setDaysLeft('30')
-    setMatch('85')
-    setTags('')
-    setMinGpa('')
-    setMajors('')
-    setFirstGenOnly(false)
-    setLowIncomeOnly(false)
-    setUrmOnly(false)
-    setInterests('')
+    setTitle(''); setAward(''); setSummary(''); setDeadline(''); setDaysLeft('30'); setMatch('85'); setTags('')
+    setMinGpa(''); setMajors(''); setFirstGenOnly(false); setLowIncomeOnly(false); setUrmOnly(false); setInterests('')
   }
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
-    const eligibility: OpportunityEligibility = {}
+    const eligibility: Opportunity['eligibility'] = {}
     if (minGpa) eligibility.minGpa = Number(minGpa)
     if (majors.trim()) eligibility.majors = majors.split(',').map((s) => s.trim()).filter(Boolean)
     if (firstGenOnly) eligibility.firstGenOnly = true
@@ -190,7 +184,7 @@ function OpportunitiesAdmin({ opps, onChange }: { opps: Opportunity[]; onChange:
       deadline: deadline.trim() || 'TBD',
       daysLeft: Number(daysLeft) || 30,
       eligibility,
-    } as Opportunity & { eligibility: OpportunityEligibility }
+    }
     await saveOpportunity(opp)
     reset()
     setShowForm(false)
@@ -206,21 +200,14 @@ function OpportunitiesAdmin({ opps, onChange }: { opps: Opportunity[]; onChange:
           onClick={() => setShowForm((v) => !v)}
           className="flex h-9 items-center gap-1.5 rounded-lg bg-primary-container px-3 font-label-sm text-label-sm font-bold text-on-primary shadow-sm transition-all hover:opacity-95 active:scale-95"
         >
-          <span className="material-symbols-outlined text-[18px]">
-            {showForm ? 'close' : 'add'}
-          </span>
+          <span className="material-symbols-outlined text-[18px]">{showForm ? 'close' : 'add'}</span>
           {showForm ? 'Cancel' : 'Add opportunity'}
         </button>
       </div>
 
       {showForm && (
-        <form
-          onSubmit={handleCreate}
-          className="flex flex-col gap-space-md rounded-2xl bg-surface-container-lowest p-space-lg shadow-sm"
-        >
-          <h3 className="font-label-md text-label-md font-bold text-primary">
-            New opportunity
-          </h3>
+        <form onSubmit={handleCreate} className="flex flex-col gap-space-md rounded-2xl bg-surface-container-lowest p-space-lg shadow-sm">
+          <h3 className="font-label-md text-label-md font-bold text-primary">New opportunity</h3>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <AdminField label="Title" value={title} onChange={setTitle} required />
             <AdminField label="Award value" value={award} onChange={setAward} placeholder="$20,000 award" />
@@ -245,10 +232,7 @@ function OpportunitiesAdmin({ opps, onChange }: { opps: Opportunity[]; onChange:
               </div>
             </div>
           </div>
-          <button
-            type="submit"
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary-container font-label-md text-label-md font-bold text-on-primary shadow-sm transition-all hover:opacity-95 active:scale-[0.98]"
-          >
+          <button type="submit" className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary-container font-label-md text-label-md font-bold text-on-primary shadow-sm transition-all hover:opacity-95 active:scale-[0.98]">
             <span className="material-symbols-outlined text-[18px]">publish</span>
             Publish opportunity
           </button>
@@ -257,27 +241,185 @@ function OpportunitiesAdmin({ opps, onChange }: { opps: Opportunity[]; onChange:
 
       <div className="flex flex-col gap-2">
         {opps.map((opp) => (
-          <div
-            key={opp.id}
-            className="flex items-start justify-between gap-3 rounded-xl bg-surface-container-lowest p-space-md shadow-sm"
-          >
+          <div key={opp.id} className="flex items-start justify-between gap-3 rounded-xl bg-surface-container-lowest p-space-md shadow-sm">
             <div className="min-w-0 flex-1">
-              <p className="truncate font-label-md text-label-md font-bold text-on-surface">
-                {opp.title}
-              </p>
+              <p className="truncate font-label-md text-label-md font-bold text-on-surface">{opp.title}</p>
               <p className="truncate font-label-xs text-label-xs text-on-surface-variant">
                 {opp.award} • {opp.deadline} • {opp.match}% match
               </p>
             </div>
             <button
               type="button"
-              onClick={async () => {
-                await deleteOpportunity(opp.id)
-                onChange()
-              }}
+              onClick={async () => { await deleteOpportunity(opp.id); onChange() }}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-error-container hover:text-error"
               aria-label="Delete"
             >
+              <span className="material-symbols-outlined text-[18px]">delete</span>
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SessionsAdmin({ onChange }: { onChange: () => void }) {
+  const [showForm, setShowForm] = useState(false)
+  const [title, setTitle] = useState('')
+  const [host, setHost] = useState('')
+  const [hostDetail, setHostDetail] = useState('')
+  const [timeBadge, setTimeBadge] = useState('')
+  const [tone, setTone] = useState<'error' | 'neutral' | 'secondary'>('neutral')
+  const [attendees, setAttendees] = useState('50')
+
+  const reset = () => { setTitle(''); setHost(''); setHostDetail(''); setTimeBadge(''); setTone('neutral'); setAttendees('50') }
+
+  const handleCreate = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!title.trim()) return
+    saveInfoSession({
+      id: 'session_' + Date.now(),
+      title: title.trim(),
+      host: host.trim() || 'GSP Mentor',
+      hostDetail: hostDetail.trim() || 'Mentor',
+      timeBadge: timeBadge.trim() || 'TBD',
+      timeTone: tone,
+      attendees: Number(attendees) || 0,
+    })
+    reset()
+    setShowForm(false)
+    onChange()
+  }
+
+  const sessions = getInfoSessions()
+
+  return (
+    <div className="flex flex-col gap-space-md">
+      <div className="flex items-center justify-between">
+        <SectionHeader icon="sensors" title={`Info Sessions (${sessions.length})`} />
+        <button
+          type="button"
+          onClick={() => setShowForm((v) => !v)}
+          className="flex h-9 items-center gap-1.5 rounded-lg bg-primary-container px-3 font-label-sm text-label-sm font-bold text-on-primary shadow-sm transition-all hover:opacity-95 active:scale-95"
+        >
+          <span className="material-symbols-outlined text-[18px]">{showForm ? 'close' : 'add'}</span>
+          {showForm ? 'Cancel' : 'Add session'}
+        </button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleCreate} className="flex flex-col gap-space-md rounded-2xl bg-surface-container-lowest p-space-lg shadow-sm">
+          <h3 className="font-label-md text-label-md font-bold text-primary">New info session</h3>
+          <AdminField label="Title" value={title} onChange={setTitle} required />
+          <div className="grid grid-cols-2 gap-3">
+            <AdminField label="Host name" value={host} onChange={setHost} />
+            <AdminField label="Host detail" value={hostDetail} onChange={setHostDetail} placeholder="Stanford '27" />
+            <AdminField label="Time badge" value={timeBadge} onChange={setTimeBadge} placeholder="Today • 6:30 PM EST" />
+            <AdminField label="Attendees" value={attendees} onChange={setAttendees} type="number" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="font-label-xs text-label-xs font-bold uppercase tracking-wider text-on-surface-variant">Tone</label>
+            <select value={tone} onChange={(e) => setTone(e.target.value as 'error' | 'neutral' | 'secondary')} className="h-11 w-full rounded-xl bg-surface-container-low px-3.5 font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary/40">
+              <option value="error">Live / Today (red)</option>
+              <option value="neutral">Upcoming (neutral)</option>
+              <option value="secondary">Saved (green)</option>
+            </select>
+          </div>
+          <button type="submit" className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary-container font-label-md text-label-md font-bold text-on-primary shadow-sm transition-all hover:opacity-95 active:scale-[0.98]">
+            <span className="material-symbols-outlined text-[18px]">publish</span>
+            Publish session
+          </button>
+        </form>
+      )}
+
+      <div className="flex flex-col gap-2">
+        {sessions.map((s) => (
+          <div key={s.id} className="flex items-start justify-between gap-3 rounded-xl bg-surface-container-lowest p-space-md shadow-sm">
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-label-md text-label-md font-bold text-on-surface">{s.title}</p>
+              <p className="truncate font-label-xs text-label-xs text-on-surface-variant">{s.host} • {s.timeBadge} • {s.attendees} attending</p>
+            </div>
+            <button type="button" onClick={() => { deleteInfoSession(s.id); onChange() }} className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-error-container hover:text-error" aria-label="Delete">
+              <span className="material-symbols-outlined text-[18px]">delete</span>
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SprintsAdmin({ onChange }: { onChange: () => void }) {
+  const [showForm, setShowForm] = useState(false)
+  const [title, setTitle] = useState('')
+  const [meta, setMeta] = useState('')
+  const [description, setDescription] = useState('')
+  const [badge, setBadge] = useState('New')
+  const [icon, setIcon] = useState('school')
+
+  const reset = () => { setTitle(''); setMeta(''); setDescription(''); setBadge('New'); setIcon('school') }
+
+  const handleCreate = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!title.trim()) return
+    saveSprint({
+      id: 'sprint_' + Date.now(),
+      badge,
+      badgeTone: 'neutral',
+      title: title.trim(),
+      meta: meta.trim() || 'TBD',
+      description: description.trim() || 'No description.',
+      icon,
+      spots: 'Open enrollment',
+      spotsTone: 'secondary',
+      cta: 'Enroll Now',
+    })
+    reset()
+    setShowForm(false)
+    onChange()
+  }
+
+  const sprints = getSprints()
+
+  return (
+    <div className="flex flex-col gap-space-md">
+      <div className="flex items-center justify-between">
+        <SectionHeader icon="school" title={`Sprints (${sprints.length})`} />
+        <button
+          type="button"
+          onClick={() => setShowForm((v) => !v)}
+          className="flex h-9 items-center gap-1.5 rounded-lg bg-primary-container px-3 font-label-sm text-label-sm font-bold text-on-primary shadow-sm transition-all hover:opacity-95 active:scale-95"
+        >
+          <span className="material-symbols-outlined text-[18px]">{showForm ? 'close' : 'add'}</span>
+          {showForm ? 'Cancel' : 'Add sprint'}
+        </button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleCreate} className="flex flex-col gap-space-md rounded-2xl bg-surface-container-lowest p-space-lg shadow-sm">
+          <h3 className="font-label-md text-label-md font-bold text-primary">New sprint</h3>
+          <AdminField label="Title" value={title} onChange={setTitle} required />
+          <AdminField label="Meta (duration/dates)" value={meta} onChange={setMeta} placeholder="5 Days • Oct 1–Oct 5" />
+          <AdminField label="Description" value={description} onChange={setDescription} textarea />
+          <div className="grid grid-cols-2 gap-3">
+            <AdminField label="Badge" value={badge} onChange={setBadge} />
+            <AdminField label="Icon" value={icon} onChange={setIcon} placeholder="school" />
+          </div>
+          <button type="submit" className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary-container font-label-md text-label-md font-bold text-on-primary shadow-sm transition-all hover:opacity-95 active:scale-[0.98]">
+            <span className="material-symbols-outlined text-[18px]">publish</span>
+            Publish sprint
+          </button>
+        </form>
+      )}
+
+      <div className="flex flex-col gap-2">
+        {sprints.map((s) => (
+          <div key={s.id} className="flex items-start justify-between gap-3 rounded-xl bg-surface-container-lowest p-space-md shadow-sm">
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-label-md text-label-md font-bold text-on-surface">{s.title}</p>
+              <p className="truncate font-label-xs text-label-xs text-on-surface-variant">{s.meta} • {s.enrolledUsers?.length ?? 0} enrolled</p>
+            </div>
+            <button type="button" onClick={() => { deleteSprint(s.id); onChange() }} className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-error-container hover:text-error" aria-label="Delete">
               <span className="material-symbols-outlined text-[18px]">delete</span>
             </button>
           </div>
@@ -296,16 +438,9 @@ function CoursesAdmin({ courses, onChange }: { courses: Course[]; onChange: () =
   const [free, setFree] = useState(true)
   const [topics, setTopics] = useState('')
 
-  const reset = () => {
-    setTitle('')
-    setDescription('')
-    setModules('6')
-    setPrice('')
-    setFree(true)
-    setTopics('')
-  }
+  const reset = () => { setTitle(''); setDescription(''); setModules('6'); setPrice(''); setFree(true); setTopics('') }
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
     const course: Course = {
@@ -323,7 +458,7 @@ function CoursesAdmin({ courses, onChange }: { courses: Course[]; onChange: () =
       gradient: 'from-primary-container via-primary to-secondary-fixed',
       icon: 'auto_stories',
     }
-    await saveCourse(course)
+    saveCourse(course)
     reset()
     setShowForm(false)
     onChange()
@@ -338,18 +473,13 @@ function CoursesAdmin({ courses, onChange }: { courses: Course[]; onChange: () =
           onClick={() => setShowForm((v) => !v)}
           className="flex h-9 items-center gap-1.5 rounded-lg bg-primary-container px-3 font-label-sm text-label-sm font-bold text-on-primary shadow-sm transition-all hover:opacity-95 active:scale-95"
         >
-          <span className="material-symbols-outlined text-[18px]">
-            {showForm ? 'close' : 'add'}
-          </span>
+          <span className="material-symbols-outlined text-[18px]">{showForm ? 'close' : 'add'}</span>
           {showForm ? 'Cancel' : 'Add course'}
         </button>
       </div>
 
       {showForm && (
-        <form
-          onSubmit={handleCreate}
-          className="flex flex-col gap-space-md rounded-2xl bg-surface-container-lowest p-space-lg shadow-sm"
-        >
+        <form onSubmit={handleCreate} className="flex flex-col gap-space-md rounded-2xl bg-surface-container-lowest p-space-lg shadow-sm">
           <h3 className="font-label-md text-label-md font-bold text-primary">New course</h3>
           <AdminField label="Title" value={title} onChange={setTitle} required />
           <AdminField label="Description" value={description} onChange={setDescription} textarea />
@@ -359,10 +489,7 @@ function CoursesAdmin({ courses, onChange }: { courses: Course[]; onChange: () =
           </div>
           <Toggle label="Free course" value={free} onChange={setFree} />
           {!free && <AdminField label="Price" value={price} onChange={setPrice} placeholder="$49" />}
-          <button
-            type="submit"
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary-container font-label-md text-label-md font-bold text-on-primary shadow-sm transition-all hover:opacity-95 active:scale-[0.98]"
-          >
+          <button type="submit" className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary-container font-label-md text-label-md font-bold text-on-primary shadow-sm transition-all hover:opacity-95 active:scale-[0.98]">
             <span className="material-symbols-outlined text-[18px]">publish</span>
             Publish course
           </button>
@@ -371,27 +498,12 @@ function CoursesAdmin({ courses, onChange }: { courses: Course[]; onChange: () =
 
       <div className="flex flex-col gap-2">
         {courses.map((c) => (
-          <div
-            key={c.id}
-            className="flex items-start justify-between gap-3 rounded-xl bg-surface-container-lowest p-space-md shadow-sm"
-          >
+          <div key={c.id} className="flex items-start justify-between gap-3 rounded-xl bg-surface-container-lowest p-space-md shadow-sm">
             <div className="min-w-0 flex-1">
-              <p className="truncate font-label-md text-label-md font-bold text-on-surface">
-                {c.title}
-              </p>
-              <p className="truncate font-label-xs text-label-xs text-on-surface-variant">
-                {c.modules} modules • {c.free ? 'Free' : c.price}
-              </p>
+              <p className="truncate font-label-md text-label-md font-bold text-on-surface">{c.title}</p>
+              <p className="truncate font-label-xs text-label-xs text-on-surface-variant">{c.modules} modules • {c.free ? 'Free' : c.price}</p>
             </div>
-            <button
-              type="button"
-              onClick={async () => {
-                await deleteCourse(c.id)
-                onChange()
-              }}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-error-container hover:text-error"
-              aria-label="Delete"
-            >
+            <button type="button" onClick={() => { deleteCourse(c.id); onChange() }} className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-error-container hover:text-error" aria-label="Delete">
               <span className="material-symbols-outlined text-[18px]">delete</span>
             </button>
           </div>
@@ -410,16 +522,9 @@ function ServicesAdmin({ services, onChange }: { services: Service[]; onChange: 
   const [category, setCategory] = useState<Service['category']>('writing')
   const [cta, setCta] = useState('')
 
-  const reset = () => {
-    setTitle('')
-    setDescription('')
-    setPrice('')
-    setPriceUnit('')
-    setCategory('writing')
-    setCta('')
-  }
+  const reset = () => { setTitle(''); setDescription(''); setPrice(''); setPriceUnit(''); setCategory('writing'); setCta('') }
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
     const service: Service = {
@@ -433,7 +538,7 @@ function ServicesAdmin({ services, onChange }: { services: Service[]; onChange: 
       cta: cta.trim() || 'Book now',
       ctaTone: 'primary',
     }
-    await saveService(service)
+    saveService(service)
     reset()
     setShowForm(false)
     onChange()
@@ -448,18 +553,13 @@ function ServicesAdmin({ services, onChange }: { services: Service[]; onChange: 
           onClick={() => setShowForm((v) => !v)}
           className="flex h-9 items-center gap-1.5 rounded-lg bg-primary-container px-3 font-label-sm text-label-sm font-bold text-on-primary shadow-sm transition-all hover:opacity-95 active:scale-95"
         >
-          <span className="material-symbols-outlined text-[18px]">
-            {showForm ? 'close' : 'add'}
-          </span>
+          <span className="material-symbols-outlined text-[18px]">{showForm ? 'close' : 'add'}</span>
           {showForm ? 'Cancel' : 'Add service'}
         </button>
       </div>
 
       {showForm && (
-        <form
-          onSubmit={handleCreate}
-          className="flex flex-col gap-space-md rounded-2xl bg-surface-container-lowest p-space-lg shadow-sm"
-        >
+        <form onSubmit={handleCreate} className="flex flex-col gap-space-md rounded-2xl bg-surface-container-lowest p-space-lg shadow-sm">
           <h3 className="font-label-md text-label-md font-bold text-primary">New service</h3>
           <AdminField label="Title" value={title} onChange={setTitle} required />
           <AdminField label="Description" value={description} onChange={setDescription} textarea />
@@ -471,11 +571,7 @@ function ServicesAdmin({ services, onChange }: { services: Service[]; onChange: 
               <label className="font-label-xs text-label-xs font-bold uppercase tracking-wider text-on-surface-variant">
                 Category
               </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as Service['category'])}
-                className="h-11 w-full rounded-xl bg-surface-container-low px-3.5 font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary/40"
-              >
+              <select value={category} onChange={(e) => setCategory(e.target.value as Service['category'])} className="h-11 w-full rounded-xl bg-surface-container-low px-3.5 font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary/40">
                 <option value="writing">Essay &amp; Writing</option>
                 <option value="audit">App Review</option>
                 <option value="mentorship">1-on-1 Mentorship</option>
@@ -483,10 +579,7 @@ function ServicesAdmin({ services, onChange }: { services: Service[]; onChange: 
               </select>
             </div>
           </div>
-          <button
-            type="submit"
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary-container font-label-md text-label-md font-bold text-on-primary shadow-sm transition-all hover:opacity-95 active:scale-[0.98]"
-          >
+          <button type="submit" className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary-container font-label-md text-label-md font-bold text-on-primary shadow-sm transition-all hover:opacity-95 active:scale-[0.98]">
             <span className="material-symbols-outlined text-[18px]">publish</span>
             Publish service
           </button>
@@ -495,27 +588,12 @@ function ServicesAdmin({ services, onChange }: { services: Service[]; onChange: 
 
       <div className="flex flex-col gap-2">
         {services.map((s) => (
-          <div
-            key={s.id}
-            className="flex items-start justify-between gap-3 rounded-xl bg-surface-container-lowest p-space-md shadow-sm"
-          >
+          <div key={s.id} className="flex items-start justify-between gap-3 rounded-xl bg-surface-container-lowest p-space-md shadow-sm">
             <div className="min-w-0 flex-1">
-              <p className="truncate font-label-md text-label-md font-bold text-on-surface">
-                {s.title}
-              </p>
-              <p className="truncate font-label-xs text-label-xs text-on-surface-variant">
-                {s.price} {s.priceUnit} • {s.category}
-              </p>
+              <p className="truncate font-label-md text-label-md font-bold text-on-surface">{s.title}</p>
+              <p className="truncate font-label-xs text-label-xs text-on-surface-variant">{s.price} {s.priceUnit} • {s.category}</p>
             </div>
-            <button
-              type="button"
-              onClick={async () => {
-                await deleteService(s.id)
-                onChange()
-              }}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-error-container hover:text-error"
-              aria-label="Delete"
-            >
+            <button type="button" onClick={() => { deleteService(s.id); onChange() }} className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-error-container hover:text-error" aria-label="Delete">
               <span className="material-symbols-outlined text-[18px]">delete</span>
             </button>
           </div>
@@ -546,26 +624,14 @@ function UsersAdmin({ users }: { users: { id: string; name: string; email: strin
         {users.map((u) => {
           const p = profiles[u.id]
           return (
-            <div
-              key={u.id}
-              className="flex items-start justify-between gap-3 rounded-xl bg-surface-container-lowest p-space-md shadow-sm"
-            >
+            <div key={u.id} className="flex items-start justify-between gap-3 rounded-xl bg-surface-container-lowest p-space-md shadow-sm">
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-container">
-                  <span
-                    className="material-symbols-outlined text-[18px] text-on-primary"
-                    style={{ fontVariationSettings: "'FILL' 1" }}
-                  >
-                    person
-                  </span>
+                  <span className="material-symbols-outlined text-[18px] text-on-primary" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate font-label-md text-label-md font-bold text-on-surface">
-                    {u.name}
-                  </p>
-                  <p className="truncate font-label-xs text-label-xs text-on-surface-variant">
-                    {u.email} • GPA {p?.gpa ?? '—'} • {p?.intendedMajor || 'Undecided'}
-                  </p>
+                  <p className="truncate font-label-md text-label-md font-bold text-on-surface">{u.name}</p>
+                  <p className="truncate font-label-xs text-label-xs text-on-surface-variant">{u.email} • GPA {p?.gpa ?? '—'} • {p?.intendedMajor || 'Undecided'}</p>
                 </div>
               </div>
               <span className="shrink-0 rounded-full bg-secondary-container px-2 py-0.5 font-label-xs text-label-xs font-bold text-on-secondary-container">
@@ -576,12 +642,8 @@ function UsersAdmin({ users }: { users: { id: string; name: string; email: strin
         })}
         {users.length === 0 && (
           <div className="rounded-xl bg-surface-container-low p-space-md text-center">
-            <p className="font-label-md text-label-md font-semibold text-on-surface">
-              No students yet
-            </p>
-            <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">
-              Students will appear here once they sign up.
-            </p>
+            <p className="font-label-md text-label-md font-semibold text-on-surface">No students yet</p>
+            <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">Students will appear here once they sign up.</p>
           </div>
         )}
       </div>

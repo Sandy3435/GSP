@@ -13,7 +13,7 @@ import OpportunitiesPage from './pages/OpportunitiesPage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import ProfilePage from './pages/ProfilePage'
-import AdminPage from './pages/AdminPage'
+import NotificationsPage from './pages/NotificationsPage'
 
 function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -40,10 +40,10 @@ function AppShell() {
             }
           />
           <Route
-            path="/admin"
+            path="/notifications"
             element={
-              <ProtectedRoute adminOnly>
-                <AdminPage />
+              <ProtectedRoute>
+                <NotificationsPage />
               </ProtectedRoute>
             }
           />

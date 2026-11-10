@@ -13,6 +13,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const navItems = [
     { to: '/', label: 'Home', icon: 'dashboard' },
     { to: '/profile', label: 'Profile', icon: 'person' },
+    { to: '/notifications', label: 'Notifications', icon: 'notifications' },
     { to: '/courses', label: 'Courses', icon: 'auto_stories' },
     { to: '/opportunities', label: 'Opportunities', icon: 'explore' },
     { to: '/community', label: 'Community', icon: 'forum' },

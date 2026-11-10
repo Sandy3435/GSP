@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
-import { communityTags, initialPosts } from '../data/mockData'
+import { useEffect, useMemo, useState } from 'react'
+import { communityTags } from '../data/mockData'
+import { getPosts, savePost } from '../lib/platformStore'
 import type { Post } from '../data/mockData'
 import { Avatar, VoteWidget } from '../components/ui'
 
@@ -13,11 +14,15 @@ const feedModes: { id: FeedMode; label: string; icon?: string; emoji?: string }[
 ]
 
 export default function CommunityPage() {
-  const [posts, setPosts] = useState<Post[]>(initialPosts)
+  const [posts, setPosts] = useState<Post[]>([])
   const [mode, setMode] = useState<FeedMode>('hot')
   const [activeTag, setActiveTag] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
+
+  useEffect(() => {
+    setPosts(getPosts())
+  }, [])
 
   const visible = useMemo(() => {
     let list = [...posts]
@@ -56,7 +61,8 @@ export default function CommunityPage() {
       replies: 0,
       mine: true,
     }
-    setPosts((prev) => [post, ...prev])
+    savePost(post)
+    setPosts(getPosts())
     setModalOpen(false)
     setMode('mine')
   }

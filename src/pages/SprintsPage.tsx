@@ -1,6 +1,9 @@
-import { useState } from 'react'
-import { cohorts, sprintDays, upcomingSprints } from '../data/mockData'
+import { useEffect, useState } from 'react'
+import { getSprints, joinSprint, leaveSprint } from '../lib/platformStore'
+import { cohorts, sprintDays } from '../data/mockData'
+import type { Sprint } from '../data/mockData'
 import { ProgressBar, SeeAllLink } from '../components/ui'
+import { useAuth } from '../context/AuthContext'
 
 type SprintTab = 'active' | 'browse' | 'cohorts'
 
@@ -13,10 +16,21 @@ const tabs: { id: SprintTab; label: string; count?: number }[] = [
 type SubmitState = 'idle' | 'uploading' | 'done'
 
 export default function SprintsPage() {
+  const { user } = useAuth()
   const [tab, setTab] = useState<SprintTab>('active')
   const [submitState, setSubmitState] = useState<SubmitState>('idle')
+  const [sprints, setSprints] = useState<ReturnType<typeof getSprints>>([])
   const [enrolled, setEnrolled] = useState<Set<string>>(new Set())
   const [waitlisted, setWaitlisted] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    const list = getSprints()
+    setSprints(list)
+    if (user) {
+      const joined = new Set(list.filter((s) => s.enrolledUsers.includes(user.id)).map((s) => s.id))
+      setEnrolled(joined)
+    }
+  }, [user])
 
   const simulateUpload = () => {
     if (submitState !== 'idle') return
@@ -25,21 +39,22 @@ export default function SprintsPage() {
   }
 
   const toggleEnroll = (id: string) => {
-    setEnrolled((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const toggleWaitlist = (id: string) => {
-    setWaitlisted((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    if (!user) return
+    if (enrolled.has(id)) {
+      leaveSprint(user.id, id)
+      setEnrolled((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    } else {
+      joinSprint(user.id, id)
+      setEnrolled((prev) => {
+        const next = new Set(prev)
+        next.add(id)
+        return next
+      })
+    }
   }
 
   return (
@@ -333,14 +348,19 @@ export default function SprintsPage() {
             </div>
             <SeeAllLink label="See All" />
           </div>
-          {upcomingSprints.map((sprint) => (
+          {sprints.map((sprint) => (
             <SprintCard
               key={sprint.id}
               sprint={sprint}
               enrolled={enrolled.has(sprint.id)}
               waitlisted={waitlisted.has(sprint.id)}
               onEnroll={() => toggleEnroll(sprint.id)}
-              onWaitlist={() => toggleWaitlist(sprint.id)}
+              onWaitlist={() => setWaitlisted((prev) => {
+                const next = new Set(prev)
+                if (next.has(sprint.id)) next.delete(sprint.id)
+                else next.add(sprint.id)
+                return next
+              })}
             />
           ))}
         </div>
@@ -428,7 +448,7 @@ function SprintCard({
   onEnroll,
   onWaitlist,
 }: {
-  sprint: (typeof upcomingSprints)[number]
+  sprint: (Sprint & { enrolledUsers: string[] })
   enrolled: boolean
   waitlisted: boolean
   onEnroll: () => void

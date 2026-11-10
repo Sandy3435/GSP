@@ -1,5 +1,6 @@
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { getUnreadCount } from '../lib/platformStore'
 
 const routeLabels: Record<string, string> = {
   '/': 'Home',
@@ -19,6 +20,7 @@ export default function Header({ onOpenSidebar }: HeaderProps) {
   const { user, logout } = useAuth()
   const label = routeLabels[pathname] ?? 'GSP'
   const initial = (user?.name ?? 'G').slice(0, 1).toUpperCase()
+  const unread = user ? getUnreadCount(user.id) : 0
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 bg-surface/85 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.03)] backdrop-blur-xl">
@@ -47,24 +49,31 @@ export default function Header({ onOpenSidebar }: HeaderProps) {
           >
             <span className="material-symbols-outlined text-[20px]">logout</span>
           </button>
-          <button
-            type="button"
+          <Link
+            to="/notifications"
             aria-label="Notifications"
             className="relative flex h-11 w-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container/60 hover:text-on-surface focus:outline-none"
           >
             <span className="material-symbols-outlined text-[24px]">
               notifications
             </span>
-            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-error ring-2 ring-surface" />
-          </button>
-          <div className="flex items-center justify-center rounded-full p-0.5 ring-2 ring-primary-container/20">
+            {unread > 0 && (
+              <span className="absolute right-2 top-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-error px-1 font-label-xs text-[9px] font-bold text-on-error">
+                {unread > 9 ? '9+' : unread}
+              </span>
+            )}
+          </Link>
+          <Link
+            to="/profile"
+            aria-label="Profile"
+            className="flex items-center justify-center rounded-full p-0.5 ring-2 ring-primary-container/20 transition-transform hover:scale-105"
+          >
             <div
               className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-container font-label-sm text-label-sm font-bold text-on-primary"
-              aria-label="Profile"
             >
               {initial}
             </div>
-          </div>
+          </Link>
         </div>
       </div>
     </header>
