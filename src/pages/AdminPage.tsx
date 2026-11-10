@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getOpportunities, saveOpportunity, deleteOpportunity } from '../lib/store'
 import { getCourses, saveCourse, deleteCourse } from '../lib/store'
 import { getServices, saveService, deleteService } from '../lib/store'
-import { getUsers, getProfile } from '../lib/auth'
+import { listUsers, getProfile } from '../lib/auth'
 import type { Opportunity, Course, Service } from '../data/mockData'
 import type { OpportunityEligibility } from '../lib/matching'
 import { SectionHeader } from '../components/ui'
@@ -22,8 +22,25 @@ export default function AdminPage() {
   const { user } = useAuth()
   const [tab, setTab] = useState<AdminTab>('overview')
   const [, forceUpdate] = useState(0)
-  const refresh = () => forceUpdate((n) => n + 1)
+  const [opps, setOpps] = useState<Opportunity[]>([])
+  const [courses, setCourses] = useState<Course[]>([])
+  const [services, setServices] = useState<Service[]>([])
+  const [users, setUsers] = useState<{ id: string; name: string; email: string; createdAt: string }[]>([])
 
+  useEffect(() => {
+    getOpportunities().then(setOpps)
+    getCourses().then(setCourses)
+    getServices().then(setServices)
+    listUsers().then((u) => setUsers(u.filter((x) => x.role === 'student') as { id: string; name: string; email: string; createdAt: string }[]))
+  }, [])
+
+  const reload = () => {
+    getOpportunities().then(setOpps)
+    getCourses().then(setCourses)
+    getServices().then(setServices)
+    listUsers().then((u) => setUsers(u.filter((x) => x.role === 'student') as { id: string; name: string; email: string; createdAt: string }[]))
+    forceUpdate((n) => n + 1)
+  }
   if (!user || user.role !== 'admin') {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-space-xl text-center">
@@ -35,11 +52,6 @@ export default function AdminPage() {
       </div>
     )
   }
-
-  const opps = getOpportunities()
-  const courses = getCourses()
-  const services = getServices()
-  const users = getUsers().filter((u) => u.role === 'student')
 
   return (
     <div className="flex flex-col gap-space-lg">
@@ -79,9 +91,9 @@ export default function AdminPage() {
       {tab === 'overview' && (
         <Overview opps={opps} courses={courses} services={services} users={users} />
       )}
-      {tab === 'opportunities' && <OpportunitiesAdmin opps={opps} onChange={refresh} />}
-      {tab === 'courses' && <CoursesAdmin courses={courses} onChange={refresh} />}
-      {tab === 'services' && <ServicesAdmin services={services} onChange={refresh} />}
+      {tab === 'opportunities' && <OpportunitiesAdmin opps={opps} onChange={reload} />}
+      {tab === 'courses' && <CoursesAdmin courses={courses} onChange={reload} />}
+      {tab === 'services' && <ServicesAdmin services={services} onChange={reload} />}
       {tab === 'users' && <UsersAdmin users={users} />}
     </div>
   )
@@ -156,7 +168,7 @@ function OpportunitiesAdmin({ opps, onChange }: { opps: Opportunity[]; onChange:
     setInterests('')
   }
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
     const eligibility: OpportunityEligibility = {}
@@ -179,7 +191,7 @@ function OpportunitiesAdmin({ opps, onChange }: { opps: Opportunity[]; onChange:
       daysLeft: Number(daysLeft) || 30,
       eligibility,
     } as Opportunity & { eligibility: OpportunityEligibility }
-    saveOpportunity(opp)
+    await saveOpportunity(opp)
     reset()
     setShowForm(false)
     onChange()
@@ -259,8 +271,8 @@ function OpportunitiesAdmin({ opps, onChange }: { opps: Opportunity[]; onChange:
             </div>
             <button
               type="button"
-              onClick={() => {
-                deleteOpportunity(opp.id)
+              onClick={async () => {
+                await deleteOpportunity(opp.id)
                 onChange()
               }}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-error-container hover:text-error"
@@ -293,7 +305,7 @@ function CoursesAdmin({ courses, onChange }: { courses: Course[]; onChange: () =
     setTopics('')
   }
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
     const course: Course = {
@@ -311,7 +323,7 @@ function CoursesAdmin({ courses, onChange }: { courses: Course[]; onChange: () =
       gradient: 'from-primary-container via-primary to-secondary-fixed',
       icon: 'auto_stories',
     }
-    saveCourse(course)
+    await saveCourse(course)
     reset()
     setShowForm(false)
     onChange()
@@ -373,8 +385,8 @@ function CoursesAdmin({ courses, onChange }: { courses: Course[]; onChange: () =
             </div>
             <button
               type="button"
-              onClick={() => {
-                deleteCourse(c.id)
+              onClick={async () => {
+                await deleteCourse(c.id)
                 onChange()
               }}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-error-container hover:text-error"
@@ -407,7 +419,7 @@ function ServicesAdmin({ services, onChange }: { services: Service[]; onChange: 
     setCta('')
   }
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
     const service: Service = {
@@ -421,7 +433,7 @@ function ServicesAdmin({ services, onChange }: { services: Service[]; onChange: 
       cta: cta.trim() || 'Book now',
       ctaTone: 'primary',
     }
-    saveService(service)
+    await saveService(service)
     reset()
     setShowForm(false)
     onChange()
@@ -497,8 +509,8 @@ function ServicesAdmin({ services, onChange }: { services: Service[]; onChange: 
             </div>
             <button
               type="button"
-              onClick={() => {
-                deleteService(s.id)
+              onClick={async () => {
+                await deleteService(s.id)
                 onChange()
               }}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-error-container hover:text-error"
@@ -514,12 +526,25 @@ function ServicesAdmin({ services, onChange }: { services: Service[]; onChange: 
 }
 
 function UsersAdmin({ users }: { users: { id: string; name: string; email: string; createdAt: string }[] }) {
+  const [profiles, setProfiles] = useState<Record<string, { gpa: number | null; intendedMajor: string; firstGen: boolean }>>({})
+
+  useEffect(() => {
+    (async () => {
+      const map: Record<string, { gpa: number | null; intendedMajor: string; firstGen: boolean }> = {}
+      for (const u of users) {
+        const p = await getProfile(u.id)
+        if (p) map[u.id] = { gpa: p.gpa, intendedMajor: p.intendedMajor, firstGen: p.firstGen }
+      }
+      setProfiles(map)
+    })()
+  }, [users])
+
   return (
     <div className="flex flex-col gap-space-md">
       <SectionHeader icon="group" title={`Students (${users.length})`} />
       <div className="flex flex-col gap-2">
         {users.map((u) => {
-          const p = getProfile(u.id)
+          const p = profiles[u.id]
           return (
             <div
               key={u.id}

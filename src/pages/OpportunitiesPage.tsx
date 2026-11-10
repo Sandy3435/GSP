@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getOpportunities } from '../lib/store'
 import type { Opportunity } from '../data/mockData'
 
@@ -45,9 +45,15 @@ export default function OpportunitiesPage() {
   const [bookmarks, setBookmarks] = useState<Set<string>>(
     new Set(['opp-questbridge']),
   )
+  const [opps, setOpps] = useState<Opportunity[]>([])
+
+  useEffect(() => {
+    getOpportunities().then((data) => {
+      setOpps(data)
+    })
+  }, [])
 
   const visible = useMemo(() => {
-    const opps = getOpportunities()
     const q = query.trim().toLowerCase()
     const list = opps.filter(
       (opp) =>
@@ -65,7 +71,7 @@ export default function OpportunitiesPage() {
       case 'name':
         return [...list].sort((a, b) => a.title.localeCompare(b.title))
     }
-  }, [filter, sort, query])
+  }, [filter, sort, query, opps])
 
   const toggleBookmark = (id: string) => {
     setBookmarks((prev) => {

@@ -13,11 +13,11 @@ export default function LoginPage() {
 
   if (user) return <Navigate to="/" replace />
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setSubmitting(true)
-    const res = login(email, password)
+    const res = await login(email, password)
     setSubmitting(false)
     if (res.ok) navigate('/')
     else setError(res.error ?? 'Login failed.')

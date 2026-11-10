@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { serviceCategories } from '../data/mockData'
 import { getServices } from '../lib/store'
-import type { ServiceCategory } from '../data/mockData'
+import type { Service, ServiceCategory } from '../data/mockData'
 
 const badgeTones: Record<string, string> = {
   popular: 'bg-secondary-container text-on-secondary-container',
@@ -19,11 +19,17 @@ const ctaTones: Record<string, string> = {
 export default function ServicesPage() {
   const [category, setCategory] = useState<ServiceCategory | 'all'>('all')
   const [query, setQuery] = useState('')
+  const [services, setServices] = useState<Service[]>([])
+
+  useEffect(() => {
+    getServices().then((data) => {
+      setServices(data)
+    })
+  }, [])
 
   const visible = useMemo(() => {
-    const svcList = getServices()
     const q = query.trim().toLowerCase()
-    return svcList.filter((svc) => {
+    return services.filter((svc) => {
       const matchesCategory = category === 'all' || svc.category === category
       const matchesQuery =
         !q ||
@@ -31,7 +37,7 @@ export default function ServicesPage() {
         svc.description.toLowerCase().includes(q)
       return matchesCategory && matchesQuery
     })
-  }, [category, query])
+  }, [category, query, services])
 
   return (
     <div className="flex flex-col gap-space-lg">

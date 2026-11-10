@@ -1,17 +1,23 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { courseTabs } from '../data/mockData'
 import { getCourses } from '../lib/store'
-import type { CourseCategory } from '../data/mockData'
+import type { Course, CourseCategory } from '../data/mockData'
 import { ProgressRing } from '../components/ui'
 
 export default function CoursesPage() {
   const [tab, setTab] = useState<CourseCategory | 'all'>('all')
   const [query, setQuery] = useState('')
+  const [courses, setCourses] = useState<Course[]>([])
+
+  useEffect(() => {
+    getCourses().then((data) => {
+      setCourses(data)
+    })
+  }, [])
 
   const visible = useMemo(() => {
-    const courseList = getCourses()
     const q = query.trim().toLowerCase()
-    return courseList.filter((course) => {
+    return courses.filter((course) => {
       const matchesTab =
         tab === 'all' ||
         (tab === 'progress'
@@ -21,7 +27,7 @@ export default function CoursesPage() {
         !q || course.title.toLowerCase().includes(q) || course.description.toLowerCase().includes(q)
       return matchesTab && matchesQuery
     })
-  }, [tab, query])
+  }, [tab, query, courses])
 
   return (
     <div className="flex flex-col gap-space-lg">

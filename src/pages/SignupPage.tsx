@@ -16,7 +16,7 @@ export default function SignupPage() {
 
   if (user) return <Navigate to="/" replace />
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     if (password !== confirm) {
@@ -24,7 +24,7 @@ export default function SignupPage() {
       return
     }
     setSubmitting(true)
-    const res = signup({ name, email, password, adminCode })
+    const res = await signup({ name, email, password, adminCode })
     setSubmitting(false)
     if (res.ok) navigate('/')
     else setError(res.error ?? 'Signup failed.')

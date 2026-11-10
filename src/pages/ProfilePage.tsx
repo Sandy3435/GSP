@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { matchScore } from '../lib/matching'
 import { getOpportunities } from '../lib/store'
 import type { Profile } from '../lib/auth'
+import type { Opportunity } from '../data/mockData'
 import { MatchBadge, SectionHeader } from '../components/ui'
 
 const MAJORS = [
@@ -107,8 +108,14 @@ export default function ProfilePage() {
     window.setTimeout(() => setSaved(false), 2000)
   }
 
+  const [opps, setOpps] = useState<Opportunity[]>([])
+
+  useEffect(() => {
+    getOpportunities().then(setOpps)
+  }, [])
+
   // Matched opportunities preview
-  const matched = getOpportunities()
+  const matched = opps
     .map((opp) => ({
       opp,
       score: matchScore(
@@ -133,7 +140,7 @@ export default function ProfilePage() {
           location,
           avatarUrl: profile.avatarUrl,
         },
-        opp.eligibility as never,
+        opp.eligibility,
       ),
     }))
     .sort((a, b) => b.score - a.score)

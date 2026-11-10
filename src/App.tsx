@@ -49,12 +49,12 @@ function AppShell() {
           />
 
           {/* Public app routes */}
-          <Route path="/" element={<HomePage />} />
-          <Route path="/services" element={<ServicesPage />} />
-          <Route path="/sprints" element={<SprintsPage />} />
-          <Route path="/courses" element={<CoursesPage />} />
-          <Route path="/community" element={<CommunityPage />} />
-          <Route path="/opportunities" element={<OpportunitiesPage />} />
+          <Route path="/" element={user ? <HomePage /> : <Navigate to="/login" replace />} />
+          <Route path="/services" element={user ? <ServicesPage /> : <Navigate to="/login" replace />} />
+          <Route path="/sprints" element={user ? <SprintsPage /> : <Navigate to="/login" replace />} />
+          <Route path="/courses" element={user ? <CoursesPage /> : <Navigate to="/login" replace />} />
+          <Route path="/community" element={user ? <CommunityPage /> : <Navigate to="/login" replace />} />
+          <Route path="/opportunities" element={user ? <OpportunitiesPage /> : <Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
