@@ -208,11 +208,11 @@ export default function SprintsPage() {
                               arrow_circle_right
                             </span>
                             <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-label-sm text-label-sm font-bold text-primary">
+                              <div className="flex items-center gap-2">
+                                <span className="truncate font-label-sm text-label-sm font-bold text-primary">
                                   {item.day}: {item.title}
                                 </span>
-                                <span className="rounded-full bg-error-container px-2 py-0.5 font-label-xs text-label-xs font-bold text-on-error-container">
+                                <span className="shrink-0 rounded-full bg-error-container px-2 py-0.5 font-label-xs text-label-xs font-bold text-on-error-container">
                                   Due Today 8:00 PM
                                 </span>
                               </div>
