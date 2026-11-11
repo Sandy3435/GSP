@@ -50,10 +50,10 @@ export default function MentorPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-space-lg">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-space-lg">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-headline-lg-mobile font-bold tracking-tight text-primary">
+          <h1 className="text-headline-lg-mobile font-bold tracking-tight text-primary md:text-headline-lg">
             Mentor Dashboard
           </h1>
           <p className="font-body-sm text-body-sm text-on-surface-variant">
@@ -65,7 +65,7 @@ export default function MentorPage() {
         </div>
       </div>
 
-      <div className="no-scrollbar flex items-center gap-1 overflow-x-auto rounded-xl bg-surface-container p-1">
+      <div className="no-scrollbar flex flex-wrap items-center gap-1 overflow-x-auto rounded-xl bg-surface-container p-1">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -138,7 +138,7 @@ export default function MentorPage() {
       )}
 
       {tab === 'sprints' && (
-        <div className="flex flex-col gap-space-md">
+        <div className="grid grid-cols-1 gap-space-md md:grid-cols-2">
           {sprints.length === 0 && <Empty icon="groups" text="No sprints assigned to you yet." />}
           {sprints.map((sprint) => (
             <div key={sprint.id} className="flex flex-col gap-2 rounded-2xl bg-surface-container-lowest p-space-md shadow-sm">
@@ -217,7 +217,7 @@ export default function MentorPage() {
       )}
 
       {tab === 'community' && (
-        <div className="flex flex-col gap-space-md">
+        <div className="grid grid-cols-1 gap-space-md md:grid-cols-2">
           <Card title="Questions in your tracks" icon="forum">
             {relevantPosts.length === 0 ? (
               <p className="font-body-sm text-body-sm text-on-surface-variant">

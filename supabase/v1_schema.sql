@@ -135,7 +135,7 @@ create table if not exists public.live_sessions (
 
 create table if not exists public.session_rsvps (
   user_id uuid references auth.users(id) on delete cascade,
-  session_id text references public.live_sessions(id) on delete cascade,
+  session_id text,
   created_at timestamptz default now(),
   primary key (user_id, session_id)
 );
@@ -159,7 +159,7 @@ create table if not exists public.sprints (
 
 create table if not exists public.sprint_enrollments (
   user_id uuid references auth.users(id) on delete cascade,
-  sprint_id text references public.sprints(id) on delete cascade,
+  sprint_id text,
   created_at timestamptz default now(),
   primary key (user_id, sprint_id)
 );
@@ -188,7 +188,7 @@ create table if not exists public.posts (
 
 create table if not exists public.post_replies (
   id text primary key,
-  post_id text references public.posts(id) on delete cascade,
+  post_id text,
   author_id uuid references auth.users(id) on delete set null,
   author_name text default '',
   author_role text default 'student',
@@ -238,6 +238,18 @@ create table if not exists public.lesson_progress (
   primary key (user_id, lesson_id)
 );
 
+-- Full app objects are mirrored in a jsonb column so the client can round-trip
+-- fields that are not worth their own column (badges, tones, display text).
+alter table public.live_sessions add column if not exists data jsonb default '{}'::jsonb;
+alter table public.sprints add column if not exists data jsonb default '{}'::jsonb;
+alter table public.posts add column if not exists data jsonb default '{}'::jsonb;
+
+-- Seed content is referenced by text ids without a foreign key, so RSVPs,
+-- enrollments and replies can be stored even for seeded (non-DB) items.
+alter table public.session_rsvps drop constraint if exists session_rsvps_session_id_fkey;
+alter table public.sprint_enrollments drop constraint if exists sprint_enrollments_sprint_id_fkey;
+alter table public.post_replies drop constraint if exists post_replies_post_id_fkey;
+
 -- RLS -----------------------------------------------------------------------
 alter table public.live_sessions enable row level security;
 alter table public.session_rsvps enable row level security;
@@ -273,8 +285,9 @@ drop policy if exists "enrollments own" on public.sprint_enrollments;
 create policy "enrollments own" on public.sprint_enrollments
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 drop policy if exists "enrollments read mentor" on public.sprint_enrollments;
-create policy "enrollments read mentor" on public.sprint_enrollments
-  for select using (public.is_mentor());
+drop policy if exists "enrollments read all" on public.sprint_enrollments;
+create policy "enrollments read all" on public.sprint_enrollments
+  for select using (true);
 
 drop policy if exists "tracks read all" on public.mentor_tracks;
 create policy "tracks read all" on public.mentor_tracks
@@ -282,6 +295,9 @@ create policy "tracks read all" on public.mentor_tracks
 drop policy if exists "tracks own write" on public.mentor_tracks;
 create policy "tracks own write" on public.mentor_tracks
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "tracks admin write" on public.mentor_tracks;
+create policy "tracks admin write" on public.mentor_tracks
+  for all using (public.is_admin()) with check (public.is_admin());
 
 drop policy if exists "posts read all" on public.posts;
 create policy "posts read all" on public.posts

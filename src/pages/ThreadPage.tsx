@@ -64,7 +64,7 @@ export default function ThreadPage() {
   }
 
   return (
-    <div className="flex flex-col gap-space-md pb-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-space-md pb-6">
       <button
         type="button"
         onClick={() => navigate(-1)}

@@ -50,10 +50,10 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-space-lg">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-space-lg">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-headline-lg-mobile font-bold tracking-tight text-primary">
+          <h1 className="text-headline-lg-mobile font-bold tracking-tight text-primary md:text-headline-lg">
             Notifications
           </h1>
           <p className="font-body-sm text-body-sm text-on-surface-variant">
@@ -82,7 +82,7 @@ export default function NotificationsPage() {
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
           {notifs.map((n) => (
             <button
               key={n.id}

@@ -114,10 +114,10 @@ export default function AdminPage() {
   const mentors = users.filter((u) => u.role === 'mentor')
 
   return (
-    <div className="flex flex-col gap-space-lg pb-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-space-lg pb-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-headline-lg-mobile font-bold tracking-tight text-primary">
+          <h1 className="text-headline-lg-mobile font-bold tracking-tight text-primary md:text-headline-lg">
             Admin Dashboard
           </h1>
           <p className="font-body-sm text-body-sm text-on-surface-variant">
@@ -129,7 +129,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="no-scrollbar flex items-center gap-1 overflow-x-auto rounded-xl bg-surface-container p-1">
+      <div className="no-scrollbar flex flex-wrap items-center gap-1 overflow-x-auto rounded-xl bg-surface-container p-1 md:overflow-visible">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -225,7 +225,7 @@ function Overview({
   ]
   return (
     <div className="flex flex-col gap-space-md">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
         {stats.map((s) => (
           <button
             key={s.label}
@@ -364,7 +364,7 @@ function OpportunitiesAdmin({ opps, onChange }: { opps: Opportunity[]; onChange:
               <span className="material-symbols-outlined text-[20px]">close</span>
             </button>
           </div>
-          <div className="grid grid-cols-1 gap-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <AdminField label="Title" value={draft.title} onChange={(v) => patch({ title: v })} required />
             <div className="grid grid-cols-2 gap-2">
               <AdminField label="Category" value={draft.category ?? ''} onChange={(v) => patch({ category: v })} placeholder="Scholarship" />

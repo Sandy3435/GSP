@@ -48,7 +48,7 @@ export default function ServicesPage() {
   }, [category, query, services])
 
   return (
-    <div className="flex flex-col gap-space-lg pb-4">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-space-lg pb-4">
       {bookings.length > 0 && (
         <section className="flex flex-col gap-2 rounded-xl bg-surface-container-lowest p-space-md shadow-sm">
           <p className="font-label-xs text-label-xs font-bold uppercase tracking-wider text-on-surface-variant">
@@ -106,7 +106,7 @@ export default function ServicesPage() {
         </div>
       </section>
 
-      <div className="no-scrollbar -mx-margin flex items-center gap-2 overflow-x-auto px-margin py-1">
+      <div className="no-scrollbar -mx-margin flex flex-wrap items-center gap-2 overflow-x-auto px-margin py-1 md:mx-0 md:px-0">
         {serviceCategories.map((cat) => (
           <button
             key={cat.id}
@@ -123,9 +123,9 @@ export default function ServicesPage() {
         ))}
       </div>
 
-      <div className="flex flex-col gap-space-md">
+      <div className="grid grid-cols-1 gap-space-md md:grid-cols-2 xl:grid-cols-3">
         {visible.length === 0 && (
-          <div className="rounded-xl bg-surface-container-low p-space-md text-center">
+          <div className="rounded-xl bg-surface-container-low p-space-md text-center md:col-span-2 xl:col-span-3">
             <p className="font-label-md text-label-md font-semibold text-on-surface">
               No services match “{query}”
             </p>
@@ -237,9 +237,9 @@ function BookingModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] mx-auto flex max-w-[430px] items-end justify-center" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[60] mx-auto flex max-w-[430px] items-end justify-center md:max-w-lg md:items-center" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative flex max-h-[92dvh] w-full flex-col gap-3 overflow-y-auto rounded-2xl bg-surface-container-lowest p-space-md shadow-2xl">
+      <div className="relative flex max-h-[92dvh] w-full flex-col gap-3 overflow-y-auto rounded-2xl bg-surface-container-lowest p-space-md shadow-2xl md:rounded-2xl">
         <div className="flex items-center justify-between">
           <h3 className="text-headline-sm font-bold text-on-surface">Request a booking</h3>
           <button type="button" onClick={onClose} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container">

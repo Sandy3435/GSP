@@ -299,7 +299,7 @@ export default function ProfilePage() {
   )
 
   return (
-    <div className="flex flex-col gap-space-lg pb-6">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-space-lg pb-6">
       {/* Header */}
       <section className="flex flex-col gap-3 rounded-2xl bg-surface-container-lowest p-space-lg shadow-sm">
         <div className="flex items-center gap-space-md">
@@ -312,7 +312,7 @@ export default function ProfilePage() {
             </span>
           </div>
           <div className="flex min-w-0 flex-1 flex-col">
-            <h1 className="truncate text-headline-lg-mobile font-bold tracking-tight text-primary">
+            <h1 className="truncate text-headline-lg-mobile font-bold tracking-tight text-primary md:text-headline-lg">
               {firstName || user.name}
             </h1>
             <p className="truncate font-body-sm text-body-sm text-on-surface-variant">

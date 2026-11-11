@@ -50,9 +50,9 @@ export default function SprintsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-space-lg pb-4">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-space-lg pb-4">
       <div>
-        <h1 className="text-headline-lg-mobile font-bold tracking-tight text-primary">
+        <h1 className="text-headline-lg-mobile font-bold tracking-tight text-primary md:text-headline-lg">
           Sprints &amp; Cohorts
         </h1>
         <p className="font-body-sm text-body-sm text-on-surface-variant">
@@ -94,9 +94,9 @@ export default function SprintsPage() {
       )}
 
       {tab === 'active' && (
-        <div className="flex flex-col gap-space-md">
+        <div className="grid grid-cols-1 gap-space-md md:grid-cols-2">
           {joined.length === 0 && (
-            <div className="flex flex-col items-center gap-3 rounded-2xl bg-surface-container-low p-space-xl text-center">
+            <div className="flex flex-col items-center gap-3 rounded-2xl bg-surface-container-low p-space-xl text-center md:col-span-2">
               <span className="material-symbols-outlined text-[44px] text-outline">school</span>
               <div>
                 <p className="text-headline-sm font-bold text-on-surface">No sprints joined yet</p>
@@ -127,9 +127,9 @@ export default function SprintsPage() {
       )}
 
       {tab === 'browse' && (
-        <div className="flex flex-col gap-space-md">
+        <div className="grid grid-cols-1 gap-space-md md:grid-cols-2">
           {sprints.filter((s) => s.published !== false).length === 0 && (
-            <div className="rounded-xl bg-surface-container-low p-space-md text-center">
+            <div className="rounded-xl bg-surface-container-low p-space-md text-center md:col-span-2">
               <p className="font-body-sm text-body-sm text-on-surface-variant">
                 No sprints are open right now. Check back soon.
               </p>

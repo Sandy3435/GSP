@@ -10,6 +10,7 @@ import {
   updateUserName,
 } from '../lib/auth'
 import type { AuthUser, Profile } from '../lib/auth'
+import { hydratePlatformStore, resetPlatformHydration } from '../lib/platformStore'
 import { supabase } from '../lib/supabase'
 
 interface AuthContextValue {
@@ -65,6 +66,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         p = defaultProfile
       }
       setProfile(p)
+      // Pull sprints, community, bookings, RSVPs and progress into the cache.
+      await hydratePlatformStore(u.id)
     } else {
       setProfile(null)
     }
@@ -118,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await authLogout()
+    resetPlatformHydration()
     setUser(null)
     setProfile(null)
   }, [])

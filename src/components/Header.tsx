@@ -35,18 +35,18 @@ export default function Header({ onOpenSidebar }: HeaderProps) {
   const unread = user ? getUnreadCount(user.id) : 0
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 bg-surface/85 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.03)] backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-[430px] items-center justify-between gap-space-sm px-margin">
+    <header className="fixed inset-x-0 top-0 z-50 bg-surface/85 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.03)] backdrop-blur-xl md:left-[280px]">
+      <div className="mx-auto flex h-16 max-w-[430px] items-center justify-between gap-space-sm px-margin md:max-w-5xl md:px-gutter-desktop lg:max-w-6xl xl:max-w-7xl">
         <div className="flex items-center gap-space-sm">
           <button
             type="button"
             aria-label="Open navigation menu"
             onClick={onOpenSidebar}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface focus:outline-none"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface focus:outline-none md:hidden"
           >
             <span className="material-symbols-outlined text-[24px]">menu</span>
           </button>
-          <span className="hidden rounded-full bg-surface-container px-space-xs py-0.5 font-label-sm text-label-sm text-on-surface-variant/80 sm:inline-block">
+          <span className="hidden rounded-full bg-surface-container px-space-xs py-0.5 font-label-sm text-label-sm text-on-surface-variant/80 md:inline-block">
             {label}
           </span>
         </div>

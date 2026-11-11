@@ -42,78 +42,80 @@ function AppShell() {
   const { user } = useAuth()
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-[430px] flex-col bg-surface text-on-surface">
+    <div className={`min-h-dvh bg-surface text-on-surface ${user ? 'md:pl-[280px]' : ''}`}>
       {user && <Header onOpenSidebar={() => setSidebarOpen(true)} />}
       {user && <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
 
-      <main className={`flex-1 overflow-x-hidden px-margin ${user ? 'pb-8 pt-20' : 'pb-8 pt-8'}`}>
-        <Routes>
-          {/* Public auth routes */}
-          <Route
-            path="/login"
-            element={
-              <GuestRoute>
-                <LoginPage />
-              </GuestRoute>
-            }
-          />
-          <Route
-            path="/signup"
-            element={
-              <GuestRoute>
-                <SignupPage />
-              </GuestRoute>
-            }
-          />
+      <main className={`px-margin pb-8 ${user ? 'pt-20 md:pt-24' : 'pt-8'}`}>
+        <div className="mx-auto w-full max-w-[430px] md:max-w-5xl lg:max-w-6xl xl:max-w-7xl">
+          <Routes>
+            {/* Public auth routes */}
+            <Route
+              path="/login"
+              element={
+                <GuestRoute>
+                  <LoginPage />
+                </GuestRoute>
+              }
+            />
+            <Route
+              path="/signup"
+              element={
+                <GuestRoute>
+                  <SignupPage />
+                </GuestRoute>
+              }
+            />
 
-          {/* Account routes */}
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <ProfilePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/notifications"
-            element={
-              <ProtectedRoute>
-                <NotificationsPage />
-              </ProtectedRoute>
-            }
-          />
+            {/* Account routes */}
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/notifications"
+              element={
+                <ProtectedRoute>
+                  <NotificationsPage />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Role dashboards */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute adminOnly>
-                <AdminPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mentor"
-            element={
-              <ProtectedRoute roles={['mentor', 'admin']}>
-                <MentorPage />
-              </ProtectedRoute>
-            }
-          />
+            {/* Role dashboards */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/mentor"
+              element={
+                <ProtectedRoute roles={['mentor', 'admin']}>
+                  <MentorPage />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Platform */}
-          <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
-          <Route path="/services" element={<ProtectedRoute><ServicesPage /></ProtectedRoute>} />
-          <Route path="/sprints" element={<ProtectedRoute><SprintsPage /></ProtectedRoute>} />
-          <Route path="/courses" element={<ProtectedRoute><CoursesPage /></ProtectedRoute>} />
-          <Route path="/courses/:courseId" element={<ProtectedRoute><CourseDetailPage /></ProtectedRoute>} />
-          <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
-          <Route path="/community/:postId" element={<ProtectedRoute><ThreadPage /></ProtectedRoute>} />
-          <Route path="/opportunities" element={<ProtectedRoute><OpportunitiesPage /></ProtectedRoute>} />
-          <Route path="/opportunities/:oppId" element={<ProtectedRoute><OpportunityDetailPage /></ProtectedRoute>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            {/* Platform */}
+            <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+            <Route path="/services" element={<ProtectedRoute><ServicesPage /></ProtectedRoute>} />
+            <Route path="/sprints" element={<ProtectedRoute><SprintsPage /></ProtectedRoute>} />
+            <Route path="/courses" element={<ProtectedRoute><CoursesPage /></ProtectedRoute>} />
+            <Route path="/courses/:courseId" element={<ProtectedRoute><CourseDetailPage /></ProtectedRoute>} />
+            <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
+            <Route path="/community/:postId" element={<ProtectedRoute><ThreadPage /></ProtectedRoute>} />
+            <Route path="/opportunities" element={<ProtectedRoute><OpportunitiesPage /></ProtectedRoute>} />
+            <Route path="/opportunities/:oppId" element={<ProtectedRoute><OpportunityDetailPage /></ProtectedRoute>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
       </main>
     </div>
   )

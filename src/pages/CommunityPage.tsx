@@ -83,7 +83,7 @@ export default function CommunityPage() {
   }
 
   return (
-    <div className="flex flex-col gap-space-md pb-4">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-space-md pb-4">
       <div className="flex items-center justify-between gap-space-sm">
         <div className="relative flex-1">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-on-surface-variant">
@@ -107,7 +107,7 @@ export default function CommunityPage() {
         </button>
       </div>
 
-      <div className="no-scrollbar flex items-center gap-space-xs overflow-x-auto py-1">
+      <div className="no-scrollbar flex flex-wrap items-center gap-space-xs overflow-x-auto py-1 md:overflow-visible">
         {feedModes.map((fm) => (
           <button
             key={fm.id}
@@ -126,7 +126,7 @@ export default function CommunityPage() {
         ))}
       </div>
 
-      <div className="no-scrollbar flex items-center gap-space-xs overflow-x-auto py-0.5">
+      <div className="no-scrollbar flex flex-wrap items-center gap-space-xs overflow-x-auto py-0.5 md:overflow-visible">
         <span className="pl-1 font-label-xs text-label-xs uppercase tracking-wider text-on-surface-variant/70">
           Tags:
         </span>
@@ -146,9 +146,9 @@ export default function CommunityPage() {
         ))}
       </div>
 
-      <div className="flex flex-col gap-space-md">
+      <div className="grid grid-cols-1 gap-space-md lg:grid-cols-2">
         {visible.length === 0 && (
-          <div className="rounded-xl bg-surface-container-low p-space-md text-center">
+          <div className="rounded-xl bg-surface-container-low p-space-md text-center lg:col-span-2">
             <p className="font-label-md text-label-md font-semibold text-on-surface">
               {mode === 'mine' ? 'You haven’t asked anything yet' : 'No threads match your filters'}
             </p>
@@ -291,9 +291,9 @@ function AskModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] mx-auto flex max-w-[430px] items-end justify-center" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[60] mx-auto flex max-w-[430px] items-end justify-center md:max-w-lg md:items-center" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative flex max-h-[92dvh] w-full flex-col gap-space-sm overflow-y-auto rounded-2xl bg-surface-container-lowest p-space-md shadow-2xl">
+      <div className="relative flex max-h-[92dvh] w-full flex-col gap-space-sm overflow-y-auto rounded-2xl bg-surface-container-lowest p-space-md shadow-2xl md:rounded-2xl">
         <div className="flex items-center justify-between pb-2">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[24px] text-primary">forum</span>

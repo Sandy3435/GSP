@@ -66,11 +66,11 @@ export default function HomePage() {
   const sprints = getPublishedSprints()
 
   return (
-    <div className="flex flex-col gap-space-lg pb-4">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-space-lg pb-4">
       <section className="flex flex-col pt-space-xs">
         <div className="flex items-center justify-between">
           <div className="flex flex-col">
-            <h1 className="text-headline-lg-mobile font-bold tracking-tight text-primary">
+            <h1 className="text-headline-lg-mobile font-bold tracking-tight text-primary md:text-headline-lg">
               {greeting()}, {(profile?.firstName || user?.name?.split(' ')[0] || 'there')} 👋
             </h1>
             <span className="mt-1 font-label-sm text-label-sm text-on-surface-variant">
@@ -147,12 +147,12 @@ export default function HomePage() {
             No live sessions are published yet.
           </div>
         )}
-        <div className="-mx-margin flex snap-x snap-mandatory gap-space-md overflow-x-auto px-margin pb-2 pt-1 no-scrollbar scroll-smooth">
+        <div className="-mx-margin flex snap-x snap-mandatory gap-space-md overflow-x-auto px-margin pb-2 pt-1 no-scrollbar scroll-smooth md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0 lg:grid-cols-3">
           {sessions.map((session) => {
             const isAttending = attending.includes(session.id)
             const isLive = session.timeTone === 'error'
             return (
-              <div key={session.id} className="flex w-[290px] shrink-0 snap-start flex-col justify-between space-y-space-sm rounded-xl bg-surface-container-lowest p-space-md shadow-sm">
+              <div key={session.id} className="flex w-[290px] shrink-0 snap-start flex-col justify-between space-y-space-sm rounded-xl bg-surface-container-lowest p-space-md shadow-sm md:w-auto">
                 <div className="space-y-space-xs">
                   <div className="flex items-center justify-between">
                     <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-label-xs text-label-xs ${timeBadgeTones[session.timeTone]}`}>
@@ -226,7 +226,7 @@ export default function HomePage() {
             </p>
           </div>
         )}
-        <div className="flex flex-col space-y-space-sm">
+        <div className="grid grid-cols-1 gap-space-sm md:grid-cols-2 xl:grid-cols-3">
           {watchlist.map(({ opp, score }) => (
             <button
               key={opp.id}
@@ -269,7 +269,7 @@ export default function HomePage() {
           title="Upcoming sprints"
           action={<SeeAllLink label="Browse" onClick={() => navigate('/sprints')} />}
         />
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
           {sprints.slice(0, 2).map((sprint) => (
             <button
               key={sprint.id}

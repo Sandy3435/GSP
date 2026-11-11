@@ -46,10 +46,10 @@ export default function CoursesPage() {
   const nextLesson = hero?.lessons?.find((l) => !completed.includes(l.id))
 
   return (
-    <div className="flex flex-col gap-space-lg pb-4">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-space-lg pb-4">
       <section className="flex flex-col gap-space-md">
         <div className="flex flex-col gap-1">
-          <h1 className="text-headline-lg-mobile font-bold tracking-tight text-primary">
+          <h1 className="text-headline-lg-mobile font-bold tracking-tight text-primary md:text-headline-lg">
             Learning Pathways &amp; Labs
           </h1>
           <p className="font-body-sm text-body-sm leading-relaxed text-on-surface-variant">
@@ -71,7 +71,7 @@ export default function CoursesPage() {
           />
         </div>
 
-        <div className="no-scrollbar -mx-margin flex items-center gap-2 overflow-x-auto px-margin py-1">
+        <div className="no-scrollbar -mx-margin flex flex-wrap items-center gap-2 overflow-x-auto px-margin py-1 md:mx-0 md:px-0">
           {courseTabs.map((t) => (
             <button
               key={t.id}
@@ -155,14 +155,15 @@ export default function CoursesPage() {
           </div>
         )}
 
-        {visible.map((course) => {
-          const total = course.lessons?.length ?? course.modules
-          const done = (course.lessons ?? []).filter((l) => completed.includes(l.id)).length
-          return (
-            <article
-              key={course.id}
-              className="flex flex-col gap-4 overflow-hidden rounded-2xl bg-surface-container-lowest p-5 shadow-sm transition-shadow hover:shadow-md"
-            >
+        <div className="grid grid-cols-1 gap-space-md md:grid-cols-2 xl:grid-cols-3">
+          {visible.map((course) => {
+            const total = course.lessons?.length ?? course.modules
+            const done = (course.lessons ?? []).filter((l) => completed.includes(l.id)).length
+            return (
+              <article
+                key={course.id}
+                className="flex flex-col gap-4 overflow-hidden rounded-2xl bg-surface-container-lowest p-5 shadow-sm transition-shadow hover:shadow-md"
+              >
               <div className={`relative -mx-5 -mt-5 mb-1 h-36 overflow-hidden bg-gradient-to-br ${course.gradient}`}>
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span
@@ -226,6 +227,7 @@ export default function CoursesPage() {
             </article>
           )
         })}
+        </div>
       </section>
     </div>
   )

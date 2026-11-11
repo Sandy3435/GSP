@@ -72,7 +72,7 @@ export default function CourseDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-space-lg pb-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-space-lg pb-6">
       <button
         type="button"
         onClick={() => navigate(-1)}
@@ -93,7 +93,7 @@ export default function CourseDetailPage() {
           <span className="w-max rounded-full bg-white/15 px-2.5 py-0.5 font-label-xs text-label-xs font-bold backdrop-blur-sm">
             {course.modules} modules • Free access
           </span>
-          <h1 className="text-headline-lg-mobile font-bold leading-tight">{course.title}</h1>
+          <h1 className="text-headline-lg-mobile font-bold leading-tight md:text-headline-lg">{course.title}</h1>
           <p className="font-body-sm text-body-sm text-white/80">{course.description}</p>
           <div className="mt-2 flex flex-col gap-1.5">
             <div className="flex items-center justify-between font-label-xs text-label-xs">
@@ -105,11 +105,12 @@ export default function CourseDetailPage() {
         </div>
       </section>
 
-      {groups.map(([moduleTitle, moduleLessons]) => (
-        <section key={moduleTitle} className="flex flex-col gap-2 rounded-2xl bg-surface-container-lowest p-space-md shadow-sm">
-          <h2 className="font-label-md text-label-md font-bold text-primary">{moduleTitle}</h2>
-          <div className="flex flex-col gap-2">
-            {moduleLessons.map((lesson) => {
+      <div className="grid grid-cols-1 gap-space-md md:grid-cols-2">
+        {groups.map(([moduleTitle, moduleLessons]) => (
+          <section key={moduleTitle} className="flex flex-col gap-2 rounded-2xl bg-surface-container-lowest p-space-md shadow-sm">
+            <h2 className="font-label-md text-label-md font-bold text-primary">{moduleTitle}</h2>
+            <div className="flex flex-col gap-2">
+              {moduleLessons.map((lesson) => {
               const isDone = completed.includes(lesson.id)
               const isOpen = openLesson === lesson.id
               return (
@@ -178,6 +179,7 @@ export default function CourseDetailPage() {
           </div>
         </section>
       ))}
+      </div>
 
       {(course.resources?.length ?? 0) > 0 && (
         <section className="flex flex-col gap-2 rounded-2xl bg-surface-container-lowest p-space-md shadow-sm">

@@ -92,7 +92,7 @@ export default function OpportunityDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-space-lg pb-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-space-lg pb-6">
       <div className="flex items-center justify-between">
         <button
           type="button"
@@ -136,7 +136,7 @@ export default function OpportunityDetailPage() {
             </span>
           ))}
         </div>
-        <h1 className="text-headline-lg-mobile font-bold leading-tight text-primary">
+        <h1 className="text-headline-lg-mobile font-bold leading-tight text-primary md:text-headline-lg">
           {opp.title}
         </h1>
         <div className="flex items-center gap-2 text-secondary">
@@ -173,56 +173,58 @@ export default function OpportunityDetailPage() {
         )}
       </section>
 
-      <Section title="Eligibility requirements" icon="rule">
-        <ul className="flex flex-col gap-2">
-          <Requirement text={opp.eligibility?.minGpa ? `Minimum GPA: ${opp.eligibility.minGpa}` : 'Open GPA requirement'} />
-          {opp.eligibility?.majors?.length ? (
-            <Requirement text={`Intended majors: ${opp.eligibility.majors.join(', ')}`} />
-          ) : null}
-          {opp.eligibility?.firstGenOnly && <Requirement text="First-generation college student" />}
-          {opp.eligibility?.lowIncomeOnly && <Requirement text="Low-income / Pell-eligible" />}
-          {opp.eligibility?.urmOnly && <Requirement text="Underrepresented minority" />}
-          {opp.eligibility?.countries?.length ? (
-            <Requirement text={`Country eligibility: ${opp.eligibility.countries.join(', ')}`} />
-          ) : null}
-          {opp.eligibility?.nationalities?.length ? (
-            <Requirement text={`Nationality eligibility: ${opp.eligibility.nationalities.join(', ')}`} />
-          ) : null}
-          {opp.eligibility?.minActivities ? (
-            <Requirement text={`At least ${opp.eligibility.minActivities} extracurricular activities`} />
-          ) : null}
-          {opp.eligibility?.requiresLeadership && <Requirement text="Demonstrated leadership experience" />}
-        </ul>
-      </Section>
+      <div className="grid gap-space-lg md:grid-cols-2">
+        <Section title="Eligibility requirements" icon="rule">
+          <ul className="flex flex-col gap-2">
+            <Requirement text={opp.eligibility?.minGpa ? `Minimum GPA: ${opp.eligibility.minGpa}` : 'Open GPA requirement'} />
+            {opp.eligibility?.majors?.length ? (
+              <Requirement text={`Intended majors: ${opp.eligibility.majors.join(', ')}`} />
+            ) : null}
+            {opp.eligibility?.firstGenOnly && <Requirement text="First-generation college student" />}
+            {opp.eligibility?.lowIncomeOnly && <Requirement text="Low-income / Pell-eligible" />}
+            {opp.eligibility?.urmOnly && <Requirement text="Underrepresented minority" />}
+            {opp.eligibility?.countries?.length ? (
+              <Requirement text={`Country eligibility: ${opp.eligibility.countries.join(', ')}`} />
+            ) : null}
+            {opp.eligibility?.nationalities?.length ? (
+              <Requirement text={`Nationality eligibility: ${opp.eligibility.nationalities.join(', ')}`} />
+            ) : null}
+            {opp.eligibility?.minActivities ? (
+              <Requirement text={`At least ${opp.eligibility.minActivities} extracurricular activities`} />
+            ) : null}
+            {opp.eligibility?.requiresLeadership && <Requirement text="Demonstrated leadership experience" />}
+          </ul>
+        </Section>
 
-      <Section title="Required documents" icon="description">
-        <ul className="flex flex-col gap-2">
-          {docs.map((doc) => (
-            <Requirement key={doc} text={doc} />
-          ))}
-        </ul>
-      </Section>
+        <Section title="Required documents" icon="description">
+          <ul className="flex flex-col gap-2">
+            {docs.map((doc) => (
+              <Requirement key={doc} text={doc} />
+            ))}
+          </ul>
+        </Section>
 
-      <Section title="Personalised guidance" icon="tips_and_updates">
-        <ul className="flex flex-col gap-2">
-          {tips.map((tip) => (
-            <li
-              key={tip}
-              className="flex items-start gap-2 rounded-xl bg-secondary-container/30 p-3 font-body-sm text-body-sm text-on-surface"
-            >
-              <span className="material-symbols-outlined mt-0.5 text-[18px] text-secondary">lightbulb</span>
-              {tip}
-            </li>
-          ))}
-        </ul>
-      </Section>
+        <Section title="Personalised guidance" icon="tips_and_updates">
+          <ul className="flex flex-col gap-2">
+            {tips.map((tip) => (
+              <li
+                key={tip}
+                className="flex items-start gap-2 rounded-xl bg-secondary-container/30 p-3 font-body-sm text-body-sm text-on-surface"
+              >
+                <span className="material-symbols-outlined mt-0.5 text-[18px] text-secondary">lightbulb</span>
+                {tip}
+              </li>
+            ))}
+          </ul>
+        </Section>
 
-      <Section title="Application instructions" icon="checklist">
-        <p className="whitespace-pre-line font-body-sm text-body-sm leading-relaxed text-on-surface-variant">
-          {opp.instructions ||
-            'Create an account on the official application portal, complete each section, upload the required documents, and submit before the deadline. Keep a copy of your submission confirmation.'}
-        </p>
-      </Section>
+        <Section title="Application instructions" icon="checklist">
+          <p className="whitespace-pre-line font-body-sm text-body-sm leading-relaxed text-on-surface-variant">
+            {opp.instructions ||
+              'Create an account on the official application portal, complete each section, upload the required documents, and submit before the deadline. Keep a copy of your submission confirmation.'}
+          </p>
+        </Section>
+      </div>
     </div>
   )
 }

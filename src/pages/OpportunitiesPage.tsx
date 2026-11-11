@@ -90,7 +90,7 @@ export default function OpportunitiesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 pb-4">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 pb-4">
       <section className="flex flex-col gap-3">
         <div className="relative w-full">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-on-surface-variant">
@@ -105,7 +105,7 @@ export default function OpportunitiesPage() {
           />
         </div>
 
-        <div className="no-scrollbar -mx-margin flex items-center gap-2 overflow-x-auto px-margin py-0.5">
+        <div className="no-scrollbar -mx-margin flex flex-wrap items-center gap-2 overflow-x-auto px-margin py-0.5 md:mx-0 md:px-0">
           {filters.map((f) => (
             <button
               key={f.id}
@@ -163,9 +163,9 @@ export default function OpportunitiesPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3.5">
+      <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2 xl:grid-cols-3">
         {visible.length === 0 && (
-          <div className="rounded-xl bg-surface-container-low p-space-md text-center">
+          <div className="rounded-xl bg-surface-container-low p-space-md text-center md:col-span-2 xl:col-span-3">
             <p className="font-label-md text-label-md font-semibold text-on-surface">
               No opportunities match your filters
             </p>
