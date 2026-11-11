@@ -320,8 +320,18 @@ create policy "bookings admin delete" on public.service_bookings
   for delete using (public.is_admin());
 
 drop policy if exists "notifications own" on public.notifications;
-create policy "notifications own" on public.notifications
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "notifications read own" on public.notifications;
+drop policy if exists "notifications insert authenticated" on public.notifications;
+drop policy if exists "notifications update own" on public.notifications;
+drop policy if exists "notifications delete own" on public.notifications;
+create policy "notifications read own" on public.notifications
+  for select using (auth.uid() = user_id);
+create policy "notifications insert authenticated" on public.notifications
+  for insert with check (auth.role() = 'authenticated');
+create policy "notifications update own" on public.notifications
+  for update using (auth.uid() = user_id);
+create policy "notifications delete own" on public.notifications
+  for delete using (auth.uid() = user_id);
 
 drop policy if exists "saved own" on public.saved_opportunities;
 create policy "saved own" on public.saved_opportunities
