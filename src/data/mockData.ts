@@ -13,6 +13,14 @@ export interface LiveSession {
   timeTone: 'error' | 'neutral' | 'secondary'
   attendees: number
   saved?: boolean
+  /* V1.0 live-session management fields */
+  description?: string
+  date?: string
+  time?: string
+  meetingLink?: string
+  relatedOpportunityId?: string
+  audience?: 'all' | 'students' | 'mentors'
+  published?: boolean
 }
 
 export const liveSessions: LiveSession[] = [
@@ -104,6 +112,10 @@ export interface Service {
   features?: { icon: string; label: string }[]
   cta: string
   ctaTone: 'primary' | 'secondary' | 'sage'
+  /* V1.0 service administration fields */
+  mentorId?: string
+  mentorName?: string
+  published?: boolean
 }
 
 export const serviceCategories: { id: ServiceCategory | 'all'; label: string }[] = [
@@ -217,6 +229,12 @@ export const sprintDays: SprintDay[] = [
   },
 ]
 
+export interface SprintMilestone {
+  id: string
+  title: string
+  date: string
+}
+
 export interface Sprint {
   id: string
   badge: string
@@ -228,6 +246,17 @@ export interface Sprint {
   spots: string
   spotsTone: 'secondary' | 'tertiary'
   cta: string
+  /* V1.0 sprint management fields */
+  objectives?: string[]
+  capacity?: number
+  startDate?: string
+  endDate?: string
+  durationDays?: number
+  mentorIds?: string[]
+  mentorNames?: string[]
+  milestones?: SprintMilestone[]
+  liveSessionIds?: string[]
+  published?: boolean
 }
 
 export const upcomingSprints: Sprint[] = [
@@ -315,6 +344,21 @@ export type CourseCategory =
   | 'financial'
   | 'progress'
 
+export interface CourseLesson {
+  id: string
+  moduleTitle: string
+  title: string
+  content: string
+  duration?: string
+  resourceLabel?: string
+  resourceUrl?: string
+}
+
+export interface CourseResource {
+  label: string
+  url: string
+}
+
 export interface Course {
   id: string
   category: CourseCategory
@@ -329,6 +373,10 @@ export interface Course {
   ctaIcon: string
   gradient: string
   icon: string
+  /* V1.0 course management fields */
+  published?: boolean
+  lessons?: CourseLesson[]
+  resources?: CourseResource[]
 }
 
 export const courseTabs: { id: CourseCategory | 'all'; label: string }[] = [
@@ -465,6 +513,23 @@ export interface Post {
   pollVotes?: number
   mediaLabel?: string
   mine?: boolean
+  /* V1.0 community fields */
+  authorId?: string
+  authorRole?: 'student' | 'mentor' | 'admin'
+  tags?: string[]
+  body?: string
+  createdAt?: string
+}
+
+export interface PostReply {
+  id: string
+  postId: string
+  authorId: string
+  authorName: string
+  authorRole: 'student' | 'mentor' | 'admin'
+  body: string
+  createdAt: string
+  votes: number
 }
 
 export const communityTags = [
@@ -558,6 +623,12 @@ export interface Opportunity {
   fullRide?: boolean
   flyIn?: boolean
   noEssay?: boolean
+  /* V1.0 opportunity administration fields */
+  category?: string
+  requiredDocuments?: string[]
+  instructions?: string
+  applicationLink?: string
+  published?: boolean
   eligibility?: {
     minGpa?: number
     majors?: string[]
@@ -567,6 +638,10 @@ export interface Opportunity {
     interests?: string[]
     states?: string[]
     graduationYears?: number[]
+    countries?: string[]
+    nationalities?: string[]
+    minActivities?: number
+    requiresLeadership?: boolean
   }
 }
 

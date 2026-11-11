@@ -12,6 +12,7 @@ const typeIcons: Record<AppNotification['type'], string> = {
   sprint: 'school',
   community: 'forum',
   deadline: 'schedule',
+  booking: 'event_available',
   system: 'info',
 }
 
@@ -20,6 +21,7 @@ const typeTones: Record<AppNotification['type'], string> = {
   sprint: 'bg-tertiary-fixed text-on-tertiary-fixed',
   community: 'bg-primary-fixed text-on-primary-fixed',
   deadline: 'bg-error-container text-on-error-container',
+  booking: 'bg-secondary-container text-on-secondary-container',
   system: 'bg-surface-container-high text-primary',
 }
 

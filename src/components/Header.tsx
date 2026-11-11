@@ -9,6 +9,10 @@ const routeLabels: Record<string, string> = {
   '/community': 'Community',
   '/sprints': 'Sprints',
   '/services': 'Services',
+  '/profile': 'Profile',
+  '/notifications': 'Notifications',
+  '/admin': 'Admin',
+  '/mentor': 'Mentor',
 }
 
 interface HeaderProps {
@@ -18,7 +22,15 @@ interface HeaderProps {
 export default function Header({ onOpenSidebar }: HeaderProps) {
   const { pathname } = useLocation()
   const { user, logout } = useAuth()
-  const label = routeLabels[pathname] ?? 'GSP'
+  const label =
+    routeLabels[pathname] ??
+    (pathname.startsWith('/courses/')
+      ? 'Course'
+      : pathname.startsWith('/opportunities/')
+        ? 'Opportunity'
+        : pathname.startsWith('/community/')
+          ? 'Discussion'
+          : 'GSP')
   const initial = (user?.name ?? 'G').slice(0, 1).toUpperCase()
   const unread = user ? getUnreadCount(user.id) : 0
 

@@ -32,15 +32,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
-    console.log('[Auth] refresh start')
     const u = await getCurrentUser()
-    console.log('[Auth] user:', u?.email)
     setUser(u)
     if (u) {
       let p = await getProfile(u.id)
-      console.log('[Auth] profile:', p)
       if (!p) {
-        console.log('[Auth] creating default profile')
         const defaultProfile: Profile = {
           userId: u.id,
           firstName: u.name.split(' ')[0] ?? '',
@@ -58,6 +54,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           targetSchools: [],
           location: '',
           avatarUrl: null,
+          schools: [],
+          activities: [],
+          countryOfOrigin: '',
+          countryOfResidence: '',
+          nationality: '',
+          educationLevel: 'High school',
         }
         await authSaveProfile(defaultProfile)
         p = defaultProfile
@@ -66,7 +68,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setProfile(null)
     }
-    console.log('[Auth] refresh done')
   }, [])
 
   useEffect(() => {

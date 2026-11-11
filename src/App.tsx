@@ -8,12 +8,34 @@ import HomePage from './pages/HomePage'
 import ServicesPage from './pages/ServicesPage'
 import SprintsPage from './pages/SprintsPage'
 import CoursesPage from './pages/CoursesPage'
+import CourseDetailPage from './pages/CourseDetailPage'
 import CommunityPage from './pages/CommunityPage'
+import ThreadPage from './pages/ThreadPage'
 import OpportunitiesPage from './pages/OpportunitiesPage'
+import OpportunityDetailPage from './pages/OpportunityDetailPage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import ProfilePage from './pages/ProfilePage'
 import NotificationsPage from './pages/NotificationsPage'
+import AdminPage from './pages/AdminPage'
+import MentorPage from './pages/MentorPage'
+
+function LoadingScreen() {
+  return (
+    <div className="flex h-40 items-center justify-center">
+      <span className="material-symbols-outlined animate-spin text-[28px] text-primary">
+        progress_activity
+      </span>
+    </div>
+  )
+}
+
+/** Auth pages only render once the session has been checked. */
+function GuestRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
+  if (loading) return <LoadingScreen />
+  return user ? <Navigate to="/" replace /> : <>{children}</>
+}
 
 function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -27,10 +49,24 @@ function AppShell() {
       <main className={`flex-1 overflow-x-hidden px-margin ${user ? 'pb-8 pt-20' : 'pb-8 pt-8'}`}>
         <Routes>
           {/* Public auth routes */}
-          <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
-          <Route path="/signup" element={user ? <Navigate to="/" replace /> : <SignupPage />} />
+          <Route
+            path="/login"
+            element={
+              <GuestRoute>
+                <LoginPage />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <GuestRoute>
+                <SignupPage />
+              </GuestRoute>
+            }
+          />
 
-          {/* Protected routes */}
+          {/* Account routes */}
           <Route
             path="/profile"
             element={
@@ -48,13 +84,34 @@ function AppShell() {
             }
           />
 
-          {/* Public app routes */}
-          <Route path="/" element={user ? <HomePage /> : <Navigate to="/login" replace />} />
-          <Route path="/services" element={user ? <ServicesPage /> : <Navigate to="/login" replace />} />
-          <Route path="/sprints" element={user ? <SprintsPage /> : <Navigate to="/login" replace />} />
-          <Route path="/courses" element={user ? <CoursesPage /> : <Navigate to="/login" replace />} />
-          <Route path="/community" element={user ? <CommunityPage /> : <Navigate to="/login" replace />} />
-          <Route path="/opportunities" element={user ? <OpportunitiesPage /> : <Navigate to="/login" replace />} />
+          {/* Role dashboards */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute adminOnly>
+                <AdminPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mentor"
+            element={
+              <ProtectedRoute roles={['mentor', 'admin']}>
+                <MentorPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Platform */}
+          <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+          <Route path="/services" element={<ProtectedRoute><ServicesPage /></ProtectedRoute>} />
+          <Route path="/sprints" element={<ProtectedRoute><SprintsPage /></ProtectedRoute>} />
+          <Route path="/courses" element={<ProtectedRoute><CoursesPage /></ProtectedRoute>} />
+          <Route path="/courses/:courseId" element={<ProtectedRoute><CourseDetailPage /></ProtectedRoute>} />
+          <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
+          <Route path="/community/:postId" element={<ProtectedRoute><ThreadPage /></ProtectedRoute>} />
+          <Route path="/opportunities" element={<ProtectedRoute><OpportunitiesPage /></ProtectedRoute>} />
+          <Route path="/opportunities/:oppId" element={<ProtectedRoute><OpportunityDetailPage /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

@@ -15,7 +15,13 @@ export interface OpportunityEligibility {
   interests?: string[]
   states?: string[]
   graduationYears?: number[]
+  countries?: string[]
+  nationalities?: string[]
+  minActivities?: number
+  requiresLeadership?: boolean
 }
+
+const LEADERSHIP_WORDS = ['lead', 'president', 'captain', 'founder', 'chair', 'director', 'head', 'coordinator']
 
 export function matchScore(
   profile: Profile | null,
@@ -106,6 +112,42 @@ export function matchScore(
     }
   } else {
     score += 3
+  }
+
+  // Country of residence / nationality
+  if (eligibility.countries && eligibility.countries.length > 0) {
+    const country = `${profile.countryOfResidence} ${profile.countryOfOrigin} ${profile.location}`.toLowerCase()
+    if (eligibility.countries.some((c) => country.includes(c.toLowerCase()))) score += 6
+    else score -= 3
+  } else {
+    score += 2
+  }
+  if (eligibility.nationalities && eligibility.nationalities.length > 0) {
+    if (eligibility.nationalities.some((n) => profile.nationality.toLowerCase().includes(n.toLowerCase()))) {
+      score += 6
+    } else {
+      score -= 3
+    }
+  } else {
+    score += 2
+  }
+
+  // Leadership & extracurricular depth
+  const activities = profile.activities ?? []
+  if (eligibility.minActivities != null) {
+    if (activities.length >= eligibility.minActivities) score += 8
+    else score -= 6
+  } else {
+    score += Math.min(6, activities.length)
+  }
+  if (eligibility.requiresLeadership) {
+    const hasLeadership = activities.some(
+      (a) =>
+        LEADERSHIP_WORDS.some((w) => a.role.toLowerCase().includes(w)) ||
+        LEADERSHIP_WORDS.some((w) => a.title.toLowerCase().includes(w)),
+    )
+    if (hasLeadership) score += 8
+    else score -= 4
   }
 
   return Math.max(40, Math.min(99, Math.round(score)))

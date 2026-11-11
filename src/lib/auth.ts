@@ -7,7 +7,7 @@
 import { isSupabaseConfigured, supabase } from './supabase'
 import type { User } from '@supabase/supabase-js'
 
-export type UserRole = 'student' | 'admin'
+export type UserRole = 'student' | 'mentor' | 'admin'
 
 export interface AuthUser {
   id: string
@@ -15,6 +15,29 @@ export interface AuthUser {
   name: string
   role: UserRole
   createdAt: string
+}
+
+export interface AcademicInstitution {
+  id: string
+  name: string
+  type: 'high_school' | 'college'
+  country: string
+  startYear: string
+  endYear: string
+  gpa: string
+  gpaScale: string
+  status: string
+}
+
+export interface Activity {
+  id: string
+  title: string
+  organization: string
+  role: string
+  description: string
+  hoursPerWeek: string
+  weeksPerYear: string
+  gradeLevels: string
 }
 
 export interface Profile {
@@ -34,12 +57,30 @@ export interface Profile {
   targetSchools: string[]
   location: string
   avatarUrl: string | null
+  /* V1.0 profile fields */
+  schools: AcademicInstitution[]
+  activities: Activity[]
+  countryOfOrigin: string
+  countryOfResidence: string
+  nationality: string
+  educationLevel: string
 }
 
 // ---------- Mock fallback (used when Supabase is not configured) ----------
 const USERS_KEY = 'gsp_users'
 const SESSION_KEY = 'gsp_session'
 const PROFILES_KEY = 'gsp_profiles'
+const PROFILE_EXT_KEY = 'gsp_profile_extras'
+
+type ProfileExtras = Pick<
+  Profile,
+  | 'schools'
+  | 'activities'
+  | 'countryOfOrigin'
+  | 'countryOfResidence'
+  | 'nationality'
+  | 'educationLevel'
+>
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -128,6 +169,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
       .eq('id', userId)
       .single()
     if (error || !data) return null
+    const ext = readJson<Record<string, ProfileExtras>>(PROFILE_EXT_KEY, {})[userId]
     return {
       userId: data.id,
       firstName: data.first_name ?? '',
@@ -145,6 +187,12 @@ export async function getProfile(userId: string): Promise<Profile | null> {
       targetSchools: data.target_schools ?? [],
       location: data.location ?? '',
       avatarUrl: data.avatar_url ?? null,
+      schools: data.schools ?? ext?.schools ?? [],
+      activities: data.activities ?? ext?.activities ?? [],
+      countryOfOrigin: data.country_of_origin ?? ext?.countryOfOrigin ?? '',
+      countryOfResidence: data.country_of_residence ?? ext?.countryOfResidence ?? '',
+      nationality: data.nationality ?? ext?.nationality ?? '',
+      educationLevel: data.education_level ?? ext?.educationLevel ?? 'High school',
     }
   }
   const profiles = readJson<Profile[]>(PROFILES_KEY, [])
@@ -153,30 +201,77 @@ export async function getProfile(userId: string): Promise<Profile | null> {
 
 export async function saveProfile(profile: Profile): Promise<void> {
   if (isSupabaseConfigured) {
-    const { error } = await supabase
-      .from('profiles')
-      .upsert({
-        id: profile.userId,
-        email: (await supabase.auth.getUser()).data.user?.email ?? null,
-        name: `${profile.firstName} ${profile.lastName}`.trim(),
-        first_name: profile.firstName,
-        last_name: profile.lastName,
-        bio: profile.bio,
-        gpa: profile.gpa,
-        sat: profile.sat,
-        act: profile.act,
-        intended_major: profile.intendedMajor,
-        graduation_year: profile.graduationYear,
-        first_gen: profile.firstGen,
-        low_income: profile.lowIncome,
-        urm: profile.urm,
-        interests: profile.interests,
-        target_schools: profile.targetSchools,
-        location: profile.location,
-        avatar_url: profile.avatarUrl,
-        updated_at: new Date().toISOString(),
-      })
-    if (error) console.error('saveProfile error:', error.message, error.code, error.details)
+    const extras: ProfileExtras = {
+      schools: profile.schools ?? [],
+      activities: profile.activities ?? [],
+      countryOfOrigin: profile.countryOfOrigin ?? '',
+      countryOfResidence: profile.countryOfResidence ?? '',
+      nationality: profile.nationality ?? '',
+      educationLevel: profile.educationLevel ?? 'High school',
+    }
+    const extMap = readJson<Record<string, ProfileExtras>>(PROFILE_EXT_KEY, {})
+    extMap[profile.userId] = extras
+    writeJson(PROFILE_EXT_KEY, extMap)
+
+    const core = {
+      id: profile.userId,
+      email: (await supabase.auth.getUser()).data.user?.email ?? null,
+      name: `${profile.firstName} ${profile.lastName}`.trim(),
+      first_name: profile.firstName,
+      last_name: profile.lastName,
+      bio: profile.bio,
+      gpa: profile.gpa,
+      sat: profile.sat,
+      act: profile.act,
+      intended_major: profile.intendedMajor,
+      graduation_year: profile.graduationYear,
+      first_gen: profile.firstGen,
+      low_income: profile.lowIncome,
+      urm: profile.urm,
+      interests: profile.interests,
+      target_schools: profile.targetSchools,
+      location: profile.location,
+      avatar_url: profile.avatarUrl,
+      updated_at: new Date().toISOString(),
+    }
+    /*
+     * The profile row is created by the signup trigger, and some deployments do
+     * not grant INSERT on profiles. Updating first mirrors what the UI actually
+     * does (edit an existing profile) and avoids the 42501 insert RLS error.
+     */
+    const full = {
+      ...core,
+      schools: extras.schools,
+      activities: extras.activities,
+      country_of_origin: extras.countryOfOrigin,
+      country_of_residence: extras.countryOfResidence,
+      nationality: extras.nationality,
+      education_level: extras.educationLevel,
+    }
+
+    const updateRow = async (row: Record<string, unknown>) => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(row)
+        .eq('id', profile.userId)
+        .select('id')
+      return { updated: (data?.length ?? 0) > 0, error }
+    }
+
+    let result = await updateRow(full)
+    if (result.error && /column|schema cache|does not exist/i.test(result.error.message)) {
+      result = await updateRow(core)
+      if (!result.error) console.warn('profiles: extended columns missing — run supabase/v1_schema.sql')
+    }
+    if (result.error) {
+      console.error('saveProfile error:', result.error.message, result.error.code)
+      return
+    }
+    if (result.updated) return
+
+    // No row yet (e.g. a profile was deleted): fall back to an insert.
+    const { error } = await supabase.from('profiles').insert(full)
+    if (error) console.error('saveProfile insert error:', error.message, error.code)
     return
   }
   const profiles = readJson<Profile[]>(PROFILES_KEY, [])
@@ -193,7 +288,11 @@ export async function signup(input: {
   adminCode?: string
 }): Promise<{ ok: true; user: AuthUser } | { ok: false; error: string }> {
   const role: UserRole =
-    input.adminCode && input.adminCode === 'GSP-ADMIN-2026' ? 'admin' : 'student'
+    input.adminCode === 'GSP-ADMIN-2026'
+      ? 'admin'
+      : input.adminCode === 'GSP-MENTOR-2026'
+        ? 'mentor'
+        : 'student'
 
   if (isSupabaseConfigured) {
     const { data, error } = await supabase.auth.signUp({
@@ -203,7 +302,13 @@ export async function signup(input: {
         data: { name: input.name.trim(), role },
       },
     })
-    if (error) return { ok: false, error: error.message }
+    if (error) {
+      const message =
+        role === 'mentor' && /database error|check constraint|profiles_role_check/i.test(error.message)
+          ? 'Mentor accounts need the Version 1 database migration. Run supabase/v1_schema.sql in Supabase, then sign up again.'
+          : error.message
+      return { ok: false, error: message }
+    }
     if (!data.user) return { ok: false, error: 'Signup failed.' }
     const user = toAuthUser(data.user)
     // Ensure profile exists (trigger should have created it, but upsert to be safe)
@@ -251,6 +356,12 @@ export async function signup(input: {
     targetSchools: [],
     location: '',
     avatarUrl: null,
+    schools: [],
+    activities: [],
+    countryOfOrigin: '',
+    countryOfResidence: '',
+    nationality: '',
+    educationLevel: 'High school',
   })
   localStorage.setItem(SESSION_KEY, user.id)
   return { ok: true, user }
@@ -284,6 +395,21 @@ export async function logout(): Promise<void> {
     return
   }
   localStorage.removeItem(SESSION_KEY)
+}
+
+export async function updateUserRole(userId: string, role: UserRole): Promise<{ ok: boolean; error?: string }> {
+  if (isSupabaseConfigured) {
+    const { error } = await supabase.from('profiles').update({ role }).eq('id', userId)
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  }
+  const users = readJson<(AuthUser & { _password?: string })[]>(USERS_KEY, [])
+  const idx = users.findIndex((u) => u.id === userId)
+  if (idx >= 0) {
+    users[idx].role = role
+    writeJson(USERS_KEY, users)
+  }
+  return { ok: true }
 }
 
 export async function updateUserName(userId: string, name: string): Promise<void> {

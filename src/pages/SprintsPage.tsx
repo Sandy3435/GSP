@@ -1,84 +1,75 @@
 import { useEffect, useState } from 'react'
-import { getSprints, joinSprint, leaveSprint } from '../lib/platformStore'
-import { cohorts, sprintDays } from '../data/mockData'
-import type { Sprint } from '../data/mockData'
-import { ProgressBar, SeeAllLink } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
+import {
+  getInfoSessions,
+  getPublishedSprints,
+  joinSprint,
+  leaveSprint,
+} from '../lib/platformStore'
+import type { LiveSession, Sprint } from '../data/mockData'
+import { ProgressBar } from '../components/ui'
 
-type SprintTab = 'active' | 'browse' | 'cohorts'
+type SprintTab = 'active' | 'browse'
 
-const tabs: { id: SprintTab; label: string; count?: number }[] = [
-  { id: 'active', label: 'Active Cohorts', count: 1 },
-  { id: 'browse', label: 'Browse Sprints' },
-  { id: 'cohorts', label: 'Cohorts' },
-]
-
-type SubmitState = 'idle' | 'uploading' | 'done'
+type SprintWithEnrollment = Sprint & { enrolledUsers: string[] }
 
 export default function SprintsPage() {
   const { user } = useAuth()
   const [tab, setTab] = useState<SprintTab>('active')
-  const [submitState, setSubmitState] = useState<SubmitState>('idle')
-  const [sprints, setSprints] = useState<ReturnType<typeof getSprints>>([])
-  const [enrolled, setEnrolled] = useState<Set<string>>(new Set())
-  const [waitlisted, setWaitlisted] = useState<Set<string>>(new Set())
+  const [sprints, setSprints] = useState<SprintWithEnrollment[]>([])
+  const [sessions, setSessions] = useState<LiveSession[]>([])
+  const [error, setError] = useState('')
 
-  useEffect(() => {
-    const list = getSprints()
-    setSprints(list)
-    if (user) {
-      const joined = new Set(list.filter((s) => s.enrolledUsers.includes(user.id)).map((s) => s.id))
-      setEnrolled(joined)
-    }
-  }, [user])
-
-  const simulateUpload = () => {
-    if (submitState !== 'idle') return
-    setSubmitState('uploading')
-    window.setTimeout(() => setSubmitState('done'), 1200)
+  const reload = () => {
+    setSprints(getPublishedSprints())
+    setSessions(getInfoSessions())
   }
 
-  const toggleEnroll = (id: string) => {
-    if (!user) return
-    if (enrolled.has(id)) {
-      leaveSprint(user.id, id)
-      setEnrolled((prev) => {
-        const next = new Set(prev)
-        next.delete(id)
-        return next
-      })
-    } else {
-      joinSprint(user.id, id)
-      setEnrolled((prev) => {
-        const next = new Set(prev)
-        next.add(id)
-        return next
-      })
+  useEffect(() => {
+    reload()
+  }, [user])
+
+  if (!user) return null
+
+  const joined = sprints.filter((s) => s.enrolledUsers.includes(user.id))
+
+  const enroll = (id: string) => {
+    const res = joinSprint(user.id, id)
+    if (!res.ok) {
+      setError(res.error ?? 'Unable to join this sprint.')
+      return
     }
+    setError('')
+    reload()
+    setTab('active')
+  }
+
+  const leave = (id: string) => {
+    leaveSprint(user.id, id)
+    reload()
   }
 
   return (
-    <div className="flex flex-col gap-space-lg">
-      {/* Title */}
-      <div className="flex items-center justify-between pt-2">
-        <div>
-          <h1 className="text-headline-lg-mobile font-bold tracking-tight text-primary">
-            Sprints &amp; Cohorts
-          </h1>
-          <p className="font-body-sm text-body-sm text-on-surface-variant">
-            Accountability cohorts, live peer reviews, and masterclasses
-          </p>
-        </div>
+    <div className="flex flex-col gap-space-lg pb-4">
+      <div>
+        <h1 className="text-headline-lg-mobile font-bold tracking-tight text-primary">
+          Sprints &amp; Cohorts
+        </h1>
+        <p className="font-body-sm text-body-sm text-on-surface-variant">
+          Administrator-led accountability sprints with mentors and live sessions.
+        </p>
       </div>
 
-      {/* Segmented navigation */}
-      <div className="flex w-full items-center justify-between gap-1 rounded-xl bg-surface-container p-1 text-center">
-        {tabs.map((t) => (
+      <div className="flex w-full items-center gap-1 rounded-xl bg-surface-container p-1 text-center">
+        {([
+          { id: 'active' as const, label: 'My Sprints', count: joined.length },
+          { id: 'browse' as const, label: 'Browse Sprints', count: undefined },
+        ]).map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
-            className={`flex-1 rounded-lg px-2.5 py-2 font-label-sm text-label-sm transition-all duration-200 flex items-center justify-center gap-1.5 ${
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 font-label-sm text-label-sm transition-all ${
               tab === t.id
                 ? 'bg-surface-container-lowest font-bold text-primary shadow-sm'
                 : 'text-on-surface-variant hover:text-primary'
@@ -86,13 +77,9 @@ export default function SprintsPage() {
           >
             <span>{t.label}</span>
             {t.count !== undefined && (
-              <span
-                className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
-                  tab === t.id
-                    ? 'bg-primary-container text-on-primary'
-                    : 'bg-surface-container text-on-surface-variant'
-                }`}
-              >
+              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
+                tab === t.id ? 'bg-primary-container text-on-primary' : 'bg-surface-container text-on-surface-variant'
+              }`}>
                 {t.count}
               </span>
             )}
@@ -100,439 +87,205 @@ export default function SprintsPage() {
         ))}
       </div>
 
-      {tab === 'active' && (
-        <>
-          {/* Featured enrolled sprint */}
-          <div className="relative w-full overflow-hidden rounded-xl bg-surface-container-lowest shadow-md">
-            <div className="h-2 w-full bg-gradient-to-r from-primary-container via-secondary to-secondary-fixed" />
-            <div className="space-y-4 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-secondary-container px-2.5 py-0.5 font-label-xs text-label-xs font-semibold text-on-secondary-container">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-secondary" />
-                    Sprint in Progress • 248 enrolled
-                  </div>
-                  <h2 className="text-headline-sm font-bold leading-tight text-primary">
-                    14-Day Early Action Essay Sprint
-                  </h2>
-                  <p className="font-label-sm text-label-sm text-on-surface-variant">
-                    Cohort #18 • Fall 2024 Submissions
-                  </p>
-                </div>
-                <div className="shrink-0 rounded-xl bg-surface-container p-2.5 text-primary-container shadow-sm">
-                  <span className="material-symbols-outlined text-[26px]">
-                    edit_note
-                  </span>
-                </div>
-              </div>
-
-              {/* Facilitators */}
-              <div className="flex items-center gap-3 rounded-lg bg-surface-container-low p-2.5">
-                <div className="flex -space-x-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-container shadow-sm">
-                    <span
-                      className="material-symbols-outlined text-[18px] text-on-primary"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      person
-                    </span>
-                  </div>
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary-fixed shadow-sm">
-                    <span
-                      className="material-symbols-outlined text-[18px] text-on-tertiary-fixed"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      person
-                    </span>
-                  </div>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-label-xs text-label-xs font-medium text-on-surface-variant">
-                    Sprint Co-Leads
-                  </p>
-                  <p className="truncate font-label-sm text-label-sm font-semibold text-primary">
-                    Alex R. (Yale '25) &amp; Priya M. (Stanford '26)
-                  </p>
-                </div>
-                <span
-                  className="material-symbols-outlined text-[20px] text-secondary"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
-                >
-                  verified
-                </span>
-              </div>
-
-              {/* Progress module */}
-              <div className="space-y-2 rounded-lg bg-surface-container p-3">
-                <div className="flex items-center justify-between font-label-sm text-label-sm">
-                  <span className="font-bold text-primary">Day 4 of 14</span>
-                  <span className="font-medium text-on-surface-variant">
-                    Milestone: Activities Draft
-                  </span>
-                </div>
-                <ProgressBar value={28.5} className="bg-surface-container-highest" />
-                <div className="flex items-center justify-between font-label-xs text-label-xs text-on-surface-variant">
-                  <span>Brainstorming</span>
-                  <span className="font-bold text-primary">Drafting (Active)</span>
-                  <span>Peer Review</span>
-                  <span>Polishing</span>
-                </div>
-              </div>
-
-              {/* Daily checklist */}
-              <div className="space-y-2 pt-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-label-md text-label-md font-bold text-primary">
-                    Daily Action Checklist
-                  </span>
-                  <span className="rounded-full bg-tertiary-fixed px-2 py-0.5 font-label-xs text-label-xs font-semibold text-on-tertiary-container">
-                    Today's Focus
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {sprintDays.map((item) => (
-                    <div
-                      key={item.day}
-                      className={`flex items-center gap-3 rounded-lg p-2.5 transition-colors ${
-                        item.state === 'active'
-                          ? 'space-y-3 rounded-xl bg-surface-container-high p-3 shadow-sm'
-                          : 'bg-surface-container-lowest'
-                      } ${item.state === 'done' ? 'opacity-75' : ''} ${
-                        item.state === 'locked' ? 'opacity-60' : ''
-                      }`}
-                    >
-                      {item.state === 'active' ? (
-                        <>
-                          <div className="flex flex-1 items-start gap-3">
-                            <span className="material-symbols-outlined mt-0.5 animate-bounce text-[24px] text-on-tertiary-container">
-                              arrow_circle_right
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="truncate font-label-sm text-label-sm font-bold text-primary">
-                                  {item.day}: {item.title}
-                                </span>
-                                <span className="shrink-0 rounded-full bg-error-container px-2 py-0.5 font-label-xs text-label-xs font-bold text-on-error-container">
-                                  Due Today 8:00 PM
-                                </span>
-                              </div>
-                              <p className="mt-0.5 font-body-sm text-body-sm text-on-surface-variant">
-                                {item.note}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 pt-1">
-                            <button
-                              type="button"
-                              onClick={simulateUpload}
-                              disabled={submitState !== 'idle'}
-                              className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-label-md text-label-md font-bold shadow-sm transition-all active:scale-95 ${
-                                submitState === 'done'
-                                  ? 'bg-secondary text-on-secondary'
-                                  : 'bg-primary-container text-on-primary'
-                              } ${submitState === 'uploading' ? 'pointer-events-none opacity-80' : ''}`}
-                            >
-                              <span className="material-symbols-outlined text-[18px]">
-                                {submitState === 'done'
-                                  ? 'task_alt'
-                                  : submitState === 'uploading'
-                                    ? 'progress_activity'
-                                    : 'upload_file'}
-                              </span>
-                              <span>
-                                {submitState === 'done'
-                                  ? 'Draft Submitted!'
-                                  : submitState === 'uploading'
-                                    ? 'Uploading Draft...'
-                                    : 'Submit Work'}
-                              </span>
-                            </button>
-                            <button
-                              type="button"
-                              className="flex items-center gap-1 rounded-lg bg-surface-container-lowest px-3 py-2.5 font-label-sm text-label-sm text-primary transition-colors hover:bg-surface-container"
-                            >
-                              <span className="material-symbols-outlined text-[18px]">
-                                visibility
-                              </span>
-                              <span>Rubric</span>
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <span
-                            className={`material-symbols-outlined text-[22px] ${
-                              item.state === 'done'
-                                ? 'text-secondary'
-                                : 'text-outline'
-                            }`}
-                            style={
-                              item.state === 'done'
-                                ? { fontVariationSettings: "'FILL' 1" }
-                                : undefined
-                            }
-                          >
-                            {item.state === 'done' ? 'check_circle' : 'lock'}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p
-                              className={`font-label-sm text-label-sm font-semibold ${
-                                item.state === 'done'
-                                  ? 'text-on-surface line-through'
-                                  : 'text-on-surface-variant'
-                              }`}
-                            >
-                              {item.day}: {item.title}
-                            </p>
-                            <p className="font-label-xs text-label-xs text-on-surface-variant">
-                              {item.note}
-                            </p>
-                          </div>
-                          {item.state === 'done' && (
-                            <span className="material-symbols-outlined text-[18px] text-outline">
-                              done_all
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Live silent sprint room */}
-              <div className="flex flex-col gap-3 rounded-xl bg-gradient-to-br from-surface-container-high via-surface-container to-surface-container-low p-3.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="relative flex h-3 w-3">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-error opacity-75" />
-                      <span className="relative inline-flex h-3 w-3 rounded-full bg-error" />
-                    </span>
-                    <span className="font-label-sm text-label-sm font-bold text-primary">
-                      Live Silent Sprint Room
-                    </span>
-                  </div>
-                  <span className="rounded-full bg-secondary-container px-2 py-0.5 font-label-xs text-label-xs font-semibold text-secondary">
-                    18 drafting now
-                  </span>
-                </div>
-                <p className="font-body-sm text-body-sm text-on-surface-variant">
-                  Hop into camera-optional lofi Pomodoro focus blocks with peer
-                  mentors on deck for quick questions.
-                </p>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 font-label-md text-label-md font-semibold text-on-secondary shadow-sm transition-all active:scale-95"
-                >
-                  <span className="material-symbols-outlined text-[20px]">
-                    videocam
-                  </span>
-                  <span>Join Silent Zoom / Study Room</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
+      {error && (
+        <div className="rounded-lg bg-error-container px-3 py-2 font-label-sm text-label-sm text-on-error-container">
+          {error}
+        </div>
       )}
 
-      {tab === 'browse' && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-headline-sm font-semibold text-primary">
-                Upcoming Sprints
-              </h3>
-              <p className="font-body-sm text-body-sm text-on-surface-variant">
-                Fast-paced, high-impact peer accountability sprints
-              </p>
+      {tab === 'active' && (
+        <div className="flex flex-col gap-space-md">
+          {joined.length === 0 && (
+            <div className="flex flex-col items-center gap-3 rounded-2xl bg-surface-container-low p-space-xl text-center">
+              <span className="material-symbols-outlined text-[44px] text-outline">school</span>
+              <div>
+                <p className="text-headline-sm font-bold text-on-surface">No sprints joined yet</p>
+                <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">
+                  Browse administrator-created sprints and register for one that fits your goals.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTab('browse')}
+                className="rounded-lg bg-primary-container px-4 py-2 font-label-md text-label-md font-bold text-on-primary"
+              >
+                Browse sprints
+              </button>
             </div>
-            <SeeAllLink label="See All" />
-          </div>
-          {sprints.map((sprint) => (
-            <SprintCard
+          )}
+
+          {joined.map((sprint) => (
+            <SprintDetail
               key={sprint.id}
               sprint={sprint}
-              enrolled={enrolled.has(sprint.id)}
-              waitlisted={waitlisted.has(sprint.id)}
-              onEnroll={() => toggleEnroll(sprint.id)}
-              onWaitlist={() => setWaitlisted((prev) => {
-                const next = new Set(prev)
-                if (next.has(sprint.id)) next.delete(sprint.id)
-                else next.add(sprint.id)
-                return next
-              })}
+              sessions={sessions}
+              joined
+              onLeave={() => leave(sprint.id)}
             />
           ))}
         </div>
       )}
 
-      {tab === 'cohorts' && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-headline-sm font-semibold text-primary">
-                Active Cohorts
-              </h3>
+      {tab === 'browse' && (
+        <div className="flex flex-col gap-space-md">
+          {sprints.filter((s) => s.published !== false).length === 0 && (
+            <div className="rounded-xl bg-surface-container-low p-space-md text-center">
               <p className="font-body-sm text-body-sm text-on-surface-variant">
-                Recurring peer circles led by vetted mentors
+                No sprints are open right now. Check back soon.
               </p>
             </div>
-          </div>
-          {cohorts.map((cohort) => (
-            <div
-              key={cohort.id}
-              className="flex flex-col gap-2 rounded-xl bg-surface-container-lowest p-4 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <h4 className="font-label-md text-label-md font-bold text-primary">
-                  {cohort.title}
-                </h4>
-                <span className="shrink-0 rounded-full bg-secondary-container px-2 py-0.5 font-label-xs text-label-xs font-bold text-on-secondary-container">
-                  {cohort.enrolled} enrolled
-                </span>
-              </div>
-              <p className="font-label-xs text-label-xs text-on-surface-variant">
-                {cohort.schedule}
-              </p>
-              <div className="flex items-center gap-1.5 border-t border-surface-container pt-2 font-label-xs text-label-xs text-on-surface-variant">
-                <span
-                  className="material-symbols-outlined text-[16px] text-secondary"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
-                >
-                  verified
-                </span>
-                <span className="font-semibold text-on-surface">
-                  {cohort.leads}
-                </span>
-              </div>
-              <button
-                type="button"
-                className="mt-1 flex h-10 items-center justify-center gap-1.5 rounded-lg bg-primary-container font-label-md text-label-md font-bold text-on-primary shadow-sm transition-all hover:opacity-95 active:scale-[0.98]"
-              >
-                <span>View Cohort</span>
-                <span className="material-symbols-outlined text-[16px]">
-                  arrow_forward
-                </span>
-              </button>
-            </div>
-          ))}
+          )}
+          {sprints.map((sprint) => {
+            const isJoined = sprint.enrolledUsers.includes(user.id)
+            const remaining = Math.max(0, (sprint.capacity ?? 0) - sprint.enrolledUsers.length)
+            const full = remaining === 0
+            return (
+              <SprintDetail
+                key={sprint.id}
+                sprint={sprint}
+                sessions={sessions}
+                joined={isJoined}
+                full={full}
+                onJoin={() => enroll(sprint.id)}
+                onLeave={() => leave(sprint.id)}
+              />
+            )
+          })}
         </div>
       )}
-
-      {/* Peer quote */}
-      <div className="flex items-start gap-3 rounded-xl bg-surface-container-low p-4">
-        <div className="shrink-0 rounded-full bg-secondary-container p-2 text-on-secondary-container">
-          <span className="material-symbols-outlined text-[20px]">
-            format_quote
-          </span>
-        </div>
-        <div className="space-y-1">
-          <p className="font-body-sm text-body-sm italic text-primary">
-            “Writing college essays in a GSP sprint made me realize everyone
-            struggles with draft 1. The feedback from my peer circle completely
-            transformed my personal statement.”
-          </p>
-          <p className="font-label-xs text-label-xs font-semibold text-on-surface-variant">
-            — Elena T., Early Action Cohort #14 (Now at Northwestern '28)
-          </p>
-        </div>
-      </div>
     </div>
   )
 }
 
-function SprintCard({
+function SprintDetail({
   sprint,
-  enrolled,
-  waitlisted,
-  onEnroll,
-  onWaitlist,
+  sessions,
+  joined,
+  full = false,
+  onJoin,
+  onLeave,
 }: {
-  sprint: (Sprint & { enrolledUsers: string[] })
-  enrolled: boolean
-  waitlisted: boolean
-  onEnroll: () => void
-  onWaitlist: () => void
+  sprint: SprintWithEnrollment
+  sessions: LiveSession[]
+  joined: boolean
+  full?: boolean
+  onJoin?: () => void
+  onLeave?: () => void
 }) {
-  const badgeTones: Record<string, string> = {
-    secondary: 'bg-secondary-container text-on-secondary-container',
-    tertiary: 'bg-tertiary-fixed text-on-tertiary-fixed',
-    neutral: 'bg-surface-container-high text-primary',
-  }
-  const isFull = sprint.cta === 'Join Waitlist'
+  const remaining = Math.max(0, (sprint.capacity ?? 0) - sprint.enrolledUsers.length)
+  const pct = sprint.capacity ? Math.min(100, (sprint.enrolledUsers.length / sprint.capacity) * 100) : 0
+  const sprintSessions = sessions.filter((s) => (sprint.liveSessionIds ?? []).includes(s.id))
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-4 shadow-sm transition-transform active:scale-[0.99]">
-      <div className="flex items-start justify-between gap-2">
-        <div className="space-y-1">
+    <article className="flex flex-col gap-3 overflow-hidden rounded-2xl bg-surface-container-lowest shadow-sm">
+      <div className="h-1.5 w-full bg-gradient-to-r from-primary-container via-secondary to-secondary-fixed" />
+      <div className="flex flex-col gap-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="rounded-full bg-secondary-container px-2.5 py-0.5 font-label-xs text-label-xs font-bold text-on-secondary-container">
+                {sprint.badge}
+              </span>
+              <span className="font-label-xs text-label-xs text-on-surface-variant">{sprint.meta}</span>
+            </div>
+            <h2 className="text-headline-sm font-bold leading-tight text-primary">{sprint.title}</h2>
+            <p className="font-label-xs text-label-xs text-on-surface-variant">
+              {sprint.enrolledUsers.length} enrolled • {remaining} of {sprint.capacity ?? '—'} spots remaining
+            </p>
+          </div>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-container text-primary">
+            <span className="material-symbols-outlined text-[22px]">{sprint.icon}</span>
+          </div>
+        </div>
+
+        <ProgressBar value={pct} className="bg-surface-container-high" />
+
+        <p className="font-body-sm text-body-sm text-on-surface-variant">{sprint.description}</p>
+
+        {sprint.objectives && sprint.objectives.length > 0 && (
+          <div>
+            <p className="font-label-xs text-label-xs font-bold uppercase tracking-wider text-on-surface-variant">Objectives</p>
+            <ul className="mt-1 flex flex-col gap-1">
+              {sprint.objectives.map((objective) => (
+                <li key={objective} className="flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface">
+                  <span className="material-symbols-outlined mt-0.5 text-[15px] text-secondary">target</span>
+                  {objective}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {sprint.milestones && sprint.milestones.length > 0 && (
+          <div>
+            <p className="font-label-xs text-label-xs font-bold uppercase tracking-wider text-on-surface-variant">Milestones</p>
+            <div className="mt-1 flex flex-col gap-1">
+              {sprint.milestones.map((milestone) => (
+                <div key={milestone.id} className="flex items-center justify-between rounded-lg bg-surface-container-low px-2.5 py-1.5">
+                  <span className="font-label-xs text-label-xs font-semibold text-on-surface">{milestone.title}</span>
+                  <span className="font-label-xs text-label-xs text-on-surface-variant">{milestone.date}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {sprint.mentorNames && sprint.mentorNames.length > 0 && (
+          <div className="flex items-center gap-2 rounded-lg bg-surface-container-low p-2.5">
+            <span className="material-symbols-outlined text-[18px] text-secondary">school</span>
+            <div className="min-w-0">
+              <p className="font-label-xs text-label-xs text-on-surface-variant">Assigned mentors</p>
+              <p className="truncate font-label-sm text-label-sm font-semibold text-primary">
+                {sprint.mentorNames.join(', ')}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {sprintSessions.length > 0 && (
+          <div>
+            <p className="font-label-xs text-label-xs font-bold uppercase tracking-wider text-on-surface-variant">Live sessions</p>
+            <div className="mt-1 flex flex-col gap-1">
+              {sprintSessions.map((session) => (
+                <div key={session.id} className="flex flex-col rounded-lg bg-surface-container-low px-2.5 py-1.5">
+                  <span className="font-label-xs text-label-xs font-semibold text-on-surface">{session.title}</span>
+                  <span className="font-label-xs text-label-xs text-on-surface-variant">{session.timeBadge}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {joined ? (
           <div className="flex items-center gap-2">
-            <span
-              className={`rounded-full px-2 py-0.5 font-label-xs text-label-xs font-bold uppercase tracking-wider ${badgeTones[sprint.badgeTone]}`}
+            <button
+              type="button"
+              onClick={onLeave}
+              className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-surface-container font-label-sm text-label-sm font-bold text-on-surface-variant"
             >
-              {sprint.badge}
-            </span>
-            <span className="font-label-xs text-label-xs text-on-surface-variant">
-              {sprint.meta}
+              <span className="material-symbols-outlined text-[17px]">logout</span>
+              Leave sprint
+            </button>
+            <span className="flex items-center gap-1 rounded-lg bg-secondary-container px-3 py-2.5 font-label-sm text-label-sm font-bold text-on-secondary-container">
+              <span className="material-symbols-outlined text-[17px]">check_circle</span>
+              Registered
             </span>
           </div>
-          <h4 className="font-label-md text-label-md font-bold text-primary">
-            {sprint.title}
-          </h4>
-        </div>
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-container text-primary-container">
-          <span className="material-symbols-outlined text-[22px]">
-            {sprint.icon}
-          </span>
-        </div>
-      </div>
-      <p className="font-body-sm text-body-sm text-on-surface-variant">
-        {sprint.description}
-      </p>
-      <div className="flex items-center justify-between pt-1">
-        <div className="flex items-center gap-1.5 font-label-xs text-label-xs text-on-surface-variant">
-          <span
-            className={`material-symbols-outlined text-[16px] ${
-              sprint.spotsTone === 'tertiary'
-                ? 'text-tertiary'
-                : 'text-secondary'
-            }`}
-          >
-            {isFull ? 'hourglass_top' : 'groups'}
-          </span>
-          <span
-            className={
-              sprint.spotsTone === 'tertiary' ? 'font-semibold text-on-tertiary-container' : ''
-            }
-          >
-            {sprint.spots}
-          </span>
-        </div>
-        {isFull ? (
-          <button
-            type="button"
-            onClick={onWaitlist}
-            className={`rounded-lg px-4 py-2 font-label-sm text-label-sm font-bold transition-all active:scale-95 ${
-              waitlisted
-                ? 'bg-secondary-container text-on-secondary-container'
-                : 'bg-surface-container-high text-primary hover:bg-surface-container'
-            }`}
-          >
-            {waitlisted ? 'On Waitlist ✓' : 'Join Waitlist'}
-          </button>
+        ) : full ? (
+          <div className="flex h-10 items-center justify-center rounded-lg bg-surface-container-high font-label-sm text-label-sm font-bold text-on-surface-variant">
+            Sprint full — registration closed
+          </div>
         ) : (
           <button
             type="button"
-            onClick={onEnroll}
-            className={`rounded-lg px-4 py-2 font-label-sm text-label-sm font-bold shadow-sm transition-all active:scale-95 ${
-              enrolled
-                ? 'bg-secondary text-on-secondary'
-                : 'bg-primary-container text-on-primary hover:opacity-95'
-            }`}
+            onClick={onJoin}
+            className="flex h-10 items-center justify-center gap-1.5 rounded-lg bg-primary-container font-label-md text-label-md font-bold text-on-primary shadow-sm"
           >
-            {enrolled ? 'Enrolled ✓' : 'Enroll Now'}
+            <span className="material-symbols-outlined text-[18px]">how_to_reg</span>
+            Register for sprint
           </button>
         )}
       </div>
-    </div>
+    </article>
   )
 }

@@ -10,7 +10,8 @@ interface SidebarProps {
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const { user, logout } = useAuth()
 
-  const navItems = [
+  const role = user?.role ?? 'student'
+  const studentItems = [
     { to: '/', label: 'Home', icon: 'dashboard' },
     { to: '/profile', label: 'Profile', icon: 'person' },
     { to: '/notifications', label: 'Notifications', icon: 'notifications' },
@@ -19,10 +20,27 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     { to: '/community', label: 'Community', icon: 'forum' },
     { to: '/sprints', label: 'Sprints', icon: 'school' },
     { to: '/services', label: 'Services', icon: 'handshake' },
-    ...(user?.role === 'admin'
-      ? [{ to: '/admin', label: 'Admin', icon: 'admin_panel_settings' }]
-      : []),
   ]
+  const mentorItems = [
+    { to: '/mentor', label: 'Mentor Dashboard', icon: 'school' },
+    { to: '/profile', label: 'Profile', icon: 'person' },
+    { to: '/notifications', label: 'Notifications', icon: 'notifications' },
+    { to: '/community', label: 'Community', icon: 'forum' },
+    { to: '/sprints', label: 'My Sprints', icon: 'groups' },
+    { to: '/services', label: 'Bookings', icon: 'calendar_month' },
+  ]
+  const adminItems = [
+    { to: '/admin', label: 'Admin Dashboard', icon: 'admin_panel_settings' },
+    { to: '/notifications', label: 'Notifications', icon: 'notifications' },
+    { to: '/opportunities', label: 'Opportunities', icon: 'explore' },
+    { to: '/courses', label: 'Courses', icon: 'auto_stories' },
+    { to: '/sprints', label: 'Sprints', icon: 'school' },
+    { to: '/services', label: 'Services', icon: 'handshake' },
+    { to: '/community', label: 'Community', icon: 'forum' },
+    { to: '/profile', label: 'My Profile', icon: 'person' },
+  ]
+  const navItems =
+    role === 'admin' ? adminItems : role === 'mentor' ? mentorItems : studentItems
 
   return (
     <div
