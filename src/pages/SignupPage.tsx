@@ -107,15 +107,18 @@ export default function SignupPage() {
 
           <details className="rounded-lg bg-surface-container-low p-2">
             <summary className="cursor-pointer font-label-xs text-label-xs font-semibold text-on-surface-variant">
-              Admin access (optional)
+              Access code (optional)
             </summary>
             <input
               type="text"
               value={adminCode}
               onChange={(e) => setAdminCode(e.target.value)}
-              placeholder="Admin code"
+              placeholder="Admin or mentor code"
               className="mt-2 h-10 w-full rounded-lg bg-surface-container-lowest px-3 font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary/40"
             />
+            <p className="mt-1.5 font-label-xs text-label-xs text-on-surface-variant">
+              Enter a code to create an admin or mentor account.
+            </p>
           </details>
 
           {error && (

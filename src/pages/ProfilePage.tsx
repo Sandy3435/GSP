@@ -6,7 +6,7 @@ import { matchScore } from '../lib/matching'
 import { getPublishedOpportunities } from '../lib/store'
 import type { AcademicInstitution, Activity, Profile } from '../lib/auth'
 import type { Opportunity } from '../data/mockData'
-import { MatchBadge, SectionHeader } from '../components/ui'
+import { MatchBadge, SectionHeader, Toggle } from '../components/ui'
 
 const MAJORS = [
   'Undecided',
@@ -440,7 +440,7 @@ export default function ProfilePage() {
           </p>
         )}
         {schools.map((school, index) => (
-          <div key={school.id} className="flex flex-col gap-2 rounded-xl bg-surface-container-low p-space-md">
+          <div key={school.id} className="flex flex-col gap-2 rounded-xl border border-surface-container bg-surface-container-lowest p-space-md">
             <div className="flex items-center justify-between">
               <span className="font-label-xs text-label-xs font-bold uppercase tracking-wider text-on-surface-variant">
                 Institution {index + 1}
@@ -546,7 +546,7 @@ export default function ProfilePage() {
           </div>
         )}
         {activities.map((activity, index) => (
-          <div key={activity.id} className="flex flex-col gap-2 rounded-xl bg-surface-container-low p-space-md">
+          <div key={activity.id} className="flex flex-col gap-2 rounded-xl border border-surface-container bg-surface-container-lowest p-space-md">
             <div className="flex items-center justify-between">
               <span className="font-label-xs text-label-xs font-bold uppercase tracking-wider text-on-surface-variant">
                 Activity {index + 1}
@@ -584,9 +584,9 @@ export default function ProfilePage() {
           <Field label="Country of residence" value={countryOfResidence} onChange={setCountryOfResidence} placeholder="United States" />
           <Field label="Nationality" value={nationality} onChange={setNationality} placeholder="Nigerian" />
         </div>
-        <Toggle label="First-generation college student" value={firstGen} onChange={setFirstGen} />
-        <Toggle label="Low-income / Pell-eligible" value={lowIncome} onChange={setLowIncome} />
-        <Toggle label="Underrepresented minority (URM)" value={urm} onChange={setUrm} />
+        <Toggle label="First-generation college student" checked={firstGen} onChange={setFirstGen} />
+        <Toggle label="Low-income / Pell-eligible" checked={lowIncome} onChange={setLowIncome} />
+        <Toggle label="Underrepresented minority (URM)" checked={urm} onChange={setUrm} />
       </section>
 
       {/* Interests */}
@@ -679,7 +679,7 @@ function Field({
           onChange={(e) => onChange(e.target.value)}
           rows={2}
           placeholder={placeholder}
-          className="w-full resize-none rounded-xl bg-surface-container-lowest p-3 font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary/40"
+          className="w-full resize-none rounded-xl bg-surface-container-low p-3 font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary/40"
         />
       ) : (
         <input
@@ -688,7 +688,7 @@ function Field({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="h-11 w-full rounded-xl bg-surface-container-lowest px-3 font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary/40"
+          className="h-11 w-full rounded-xl bg-surface-container-low px-3 font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary/40"
         />
       )}
     </div>
@@ -714,43 +714,12 @@ function SelectField({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-11 w-full rounded-xl bg-surface-container-lowest px-3 font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary/40"
+        className="h-11 w-full rounded-xl bg-surface-container-low px-3 font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary/40"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
         ))}
       </select>
     </div>
-  )
-}
-
-function Toggle({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: boolean
-  onChange: (v: boolean) => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!value)}
-      className="flex items-center justify-between gap-3 rounded-xl bg-surface-container-low px-3.5 py-3 text-left"
-    >
-      <span className="font-body-sm text-body-sm text-on-surface">{label}</span>
-      <span
-        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-          value ? 'bg-primary-container' : 'bg-surface-container-highest'
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-            value ? 'translate-x-5' : 'translate-x-0.5'
-          }`}
-        />
-      </span>
-    </button>
   )
 }

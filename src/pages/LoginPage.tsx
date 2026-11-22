@@ -116,8 +116,8 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center font-label-xs text-label-xs text-on-surface-variant/70">
-          Demo: sign up first, then log in. Admin access requires code
-          GSP-ADMIN-2026.
+          Admin and mentor roles require an access code — enter it during sign-up
+          or from your profile.
         </p>
       </div>
     </div>

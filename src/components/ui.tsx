@@ -245,3 +245,58 @@ export function FilterChip({
     </button>
   )
 }
+
+/* --------------------------------- Toggle ---------------------------------- */
+
+const toggleSizes = {
+  sm: {
+    row: 'gap-2 rounded-lg px-1 py-1.5',
+    label: 'font-label-xs text-label-xs',
+    track: 'h-5 w-9',
+    knob: 'h-4 w-4',
+    knobOn: 'translate-x-4',
+  },
+  md: {
+    row: 'gap-3 rounded-lg px-1 py-2',
+    label: 'font-body-sm text-body-sm',
+    track: 'h-6 w-11',
+    knob: 'h-5 w-5',
+    knobOn: 'translate-x-5',
+  },
+} as const
+
+export function Toggle({
+  label,
+  checked,
+  onChange,
+  size = 'md',
+}: {
+  label: string
+  checked: boolean
+  onChange: (v: boolean) => void
+  size?: 'sm' | 'md'
+}) {
+  const s = toggleSizes[size]
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`flex w-full items-center justify-between ${s.row} text-left`}
+    >
+      <span className={`${s.label} text-on-surface`}>{label}</span>
+      <span
+        className={`relative ${s.track} shrink-0 rounded-full transition-colors ${
+          checked ? 'bg-primary-container' : 'bg-surface-container-highest'
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 ${s.knob} rounded-full bg-white shadow-sm transition-transform ${
+            checked ? s.knobOn : 'translate-x-0.5'
+          }`}
+        />
+      </span>
+    </button>
+  )
+}

@@ -269,10 +269,10 @@ export default function OpportunitiesPage() {
           <span className="material-symbols-outlined text-[22px]">checklist</span>
         </div>
         <span className="font-label-md text-label-md font-bold text-primary">
-          You’re all caught up for this week!
+          {visible.length === 0 ? 'Nothing matches your filters yet' : 'Want a better match?'}
         </span>
         <p className="mt-0.5 max-w-xs font-body-sm text-body-sm text-on-surface-variant">
-          Matches update automatically as you complete your profile.
+          Complete your profile to unlock more personalised opportunities.
         </p>
       </div>
     </div>

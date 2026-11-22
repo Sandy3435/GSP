@@ -105,6 +105,55 @@ export default function ThreadPage() {
             <p className="mt-2 whitespace-pre-line font-body-sm text-body-sm leading-relaxed text-on-surface-variant">
               {post.body ?? post.excerpt}
             </p>
+
+            {post.mediaLabel && (
+              <div className="mt-2 flex w-max items-center gap-1.5 rounded-lg bg-surface-container-low px-2.5 py-1 font-label-xs text-label-xs text-on-surface-variant">
+                <span className="material-symbols-outlined text-[15px] text-secondary">description</span>
+                {post.mediaLabel}
+              </div>
+            )}
+
+            {post.verifiedAnswers && (
+              <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-secondary-container/40 px-2.5 py-1.5 font-label-xs text-label-xs font-semibold text-on-secondary-container">
+                <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                  verified
+                </span>
+                {post.verifiedAnswers}
+              </div>
+            )}
+
+            {post.topAnswer && (
+              <div className="mt-2 rounded-xl border-l-2 border-secondary bg-surface-container-low p-3">
+                <p className="font-label-xs text-label-xs font-bold uppercase tracking-wider text-secondary">
+                  Top answer
+                </p>
+                <p className="mt-1 font-body-sm text-body-sm leading-relaxed text-on-surface">
+                  {post.topAnswer}
+                </p>
+              </div>
+            )}
+
+            {post.poll && post.poll.length > 0 && (
+              <div className="mt-2 flex flex-col gap-2 rounded-xl bg-surface-container-low p-3">
+                {post.poll.map((o) => (
+                  <div key={o.label} className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between font-label-xs text-label-xs">
+                      <span className="font-semibold text-on-surface">{o.label}</span>
+                      <span className="text-on-surface-variant">{o.pct}%</span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-surface-container-highest">
+                      <div
+                        className={`h-full rounded-full ${o.tone === 'primary' ? 'bg-primary-container' : 'bg-secondary'}`}
+                        style={{ width: `${o.pct}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+                {post.pollVotes ? (
+                  <p className="font-label-xs text-label-xs text-on-surface-variant">{post.pollVotes} votes</p>
+                ) : null}
+              </div>
+            )}
           </div>
         </div>
       </article>

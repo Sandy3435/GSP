@@ -37,7 +37,7 @@ import type {
   Service,
   Sprint,
 } from '../data/mockData'
-import { SectionHeader } from '../components/ui'
+import { SectionHeader, Toggle } from '../components/ui'
 
 type AdminTab =
   | 'overview'
@@ -377,7 +377,7 @@ function OpportunitiesAdmin({ opps, onChange }: { opps: Opportunity[]; onChange:
             <AdminField label="Required documents (one per line)" value={docs} onChange={setDocs} textarea placeholder={'Transcript\nTwo recommendations\nPersonal statement'} />
             <AdminField label="Application instructions" value={draft.instructions ?? ''} onChange={(v) => patch({ instructions: v })} textarea />
             <AdminField label="Official application link" value={draft.applicationLink ?? ''} onChange={(v) => patch({ applicationLink: v })} placeholder="https://..." />
-            <Toggle label="Published to students" value={draft.published !== false} onChange={(v) => patch({ published: v })} />
+            <Toggle label="Published to students" checked={draft.published !== false} onChange={(v) => patch({ published: v })} size="sm" />
           </div>
 
           <div className="rounded-xl bg-surface-container-low p-space-md">
@@ -393,10 +393,10 @@ function OpportunitiesAdmin({ opps, onChange }: { opps: Opportunity[]; onChange:
               <AdminField label="Nationalities (comma)" value={nationalities} onChange={setNationalities} placeholder="Nigerian" />
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2">
-              <Toggle label="First-gen only" value={firstGenOnly} onChange={setFirstGenOnly} />
-              <Toggle label="Low-income only" value={lowIncomeOnly} onChange={setLowIncomeOnly} />
-              <Toggle label="URM only" value={urmOnly} onChange={setUrmOnly} />
-              <Toggle label="Leadership required" value={requiresLeadership} onChange={setRequiresLeadership} />
+              <Toggle label="First-gen only" checked={firstGenOnly} onChange={setFirstGenOnly} size="sm" />
+              <Toggle label="Low-income only" checked={lowIncomeOnly} onChange={setLowIncomeOnly} size="sm" />
+              <Toggle label="URM only" checked={urmOnly} onChange={setUrmOnly} size="sm" />
+              <Toggle label="Leadership required" checked={requiresLeadership} onChange={setRequiresLeadership} size="sm" />
             </div>
           </div>
 
@@ -548,7 +548,7 @@ function CoursesAdmin({ courses, onChange }: { courses: Course[]; onChange: () =
             />
             <AdminField label="Topics (comma)" value={topics} onChange={setTopics} />
           </div>
-          <Toggle label="Published to students" value={draft.published !== false} onChange={(v) => patch({ published: v })} />
+          <Toggle label="Published to students" checked={draft.published !== false} onChange={(v) => patch({ published: v })} size="sm" />
 
           <div className="rounded-xl bg-surface-container-low p-space-md">
             <p className="mb-2 font-label-xs text-label-xs font-bold uppercase tracking-wider text-on-surface-variant">
@@ -759,14 +759,14 @@ function SprintsAdmin({
           </div>
           <AdminField label="Objectives (one per line)" value={objectives} onChange={setObjectives} textarea />
           <AdminField label="Milestones (Title | Date, one per line)" value={milestones} onChange={setMilestones} textarea placeholder={'Draft outline | Oct 2\nPeer review | Oct 4'} />
-          <Toggle label="Published to students" value={draft.published !== false} onChange={(v) => patch({ published: v })} />
+          <Toggle label="Published to students" checked={draft.published !== false} onChange={(v) => patch({ published: v })} size="sm" />
 
           <div className="rounded-xl bg-surface-container-low p-space-md">
             <p className="mb-2 font-label-xs text-label-xs font-bold uppercase tracking-wider text-on-surface-variant">Assign mentors</p>
             {mentors.length === 0 && <p className="font-label-xs text-label-xs text-on-surface-variant">No mentors yet. Promote a user in the Mentors tab.</p>}
             <div className="flex flex-col gap-1">
               {mentors.map((m) => (
-                <Toggle key={m.id} label={m.name} value={(draft.mentorIds ?? []).includes(m.id)} onChange={() => toggleMentor(m.id)} />
+                <Toggle key={m.id} label={m.name} checked={(draft.mentorIds ?? []).includes(m.id)} onChange={() => toggleMentor(m.id)} size="sm" />
               ))}
             </div>
           </div>
@@ -776,7 +776,7 @@ function SprintsAdmin({
             {sessions.length === 0 && <p className="font-label-xs text-label-xs text-on-surface-variant">Create live sessions first.</p>}
             <div className="flex flex-col gap-1">
               {sessions.map((s) => (
-                <Toggle key={s.id} label={`${s.title} (${s.timeBadge})`} value={(draft.liveSessionIds ?? []).includes(s.id)} onChange={() => toggleSession(s.id)} />
+                <Toggle key={s.id} label={`${s.title} (${s.timeBadge})`} checked={(draft.liveSessionIds ?? []).includes(s.id)} onChange={() => toggleSession(s.id)} size="sm" />
               ))}
             </div>
           </div>
@@ -939,7 +939,7 @@ function SessionsAdmin({
               { value: 'secondary', label: 'Featured (green)' },
             ]}
           />
-          <Toggle label="Published to dashboards" value={draft.published !== false} onChange={(v) => patch({ published: v })} />
+          <Toggle label="Published to dashboards" checked={draft.published !== false} onChange={(v) => patch({ published: v })} size="sm" />
           <button type="submit" className="flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-container font-label-md text-label-md font-bold text-on-primary">
             <span className="material-symbols-outlined text-[18px]">publish</span>
             Save session
@@ -1167,7 +1167,7 @@ function ServicesAdmin({
             onChange={(v) => patch({ mentorId: v || undefined })}
             options={[{ value: '', label: 'Unassigned' }, ...mentors.map((m) => ({ value: m.id, label: m.name }))]}
           />
-          <Toggle label="Published to students" value={draft.published !== false} onChange={(v) => patch({ published: v })} />
+          <Toggle label="Published to students" checked={draft.published !== false} onChange={(v) => patch({ published: v })} size="sm" />
           <button type="submit" className="flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-container font-label-md text-label-md font-bold text-on-primary">
             <span className="material-symbols-outlined text-[18px]">publish</span>
             Save service
@@ -1412,17 +1412,6 @@ function SelectField({
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     </div>
-  )
-}
-
-function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button type="button" onClick={() => onChange(!value)} className="flex items-center justify-between gap-2 rounded-lg bg-surface-container-low px-2.5 py-2 text-left">
-      <span className="font-label-xs text-label-xs text-on-surface">{label}</span>
-      <span className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${value ? 'bg-primary-container' : 'bg-surface-container-highest'}`}>
-        <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${value ? 'translate-x-4' : 'translate-x-0.5'}`} />
-      </span>
-    </button>
   )
 }
 

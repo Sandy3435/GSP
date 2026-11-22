@@ -54,49 +54,6 @@ export const liveSessions: LiveSession[] = [
   },
 ]
 
-export interface WatchlistOpportunity {
-  id: string
-  title: string
-  match: number
-  tag: string
-  deadline: string
-  daysLeft: string
-  urgent: boolean
-  status: string
-  statusTone: 'done' | 'saved'
-  cta: string
-  ctaIcon: string
-}
-
-export const watchlist: WatchlistOpportunity[] = [
-  {
-    id: 'watch-questbridge',
-    title: 'QuestBridge National Match',
-    match: 99,
-    tag: 'Full-Ride Potential',
-    deadline: 'Sep 26',
-    daysLeft: '12 days left',
-    urgent: true,
-    status: 'Application Drafted',
-    statusTone: 'done',
-    cta: 'Continue',
-    ctaIcon: 'arrow_forward',
-  },
-  {
-    id: 'watch-coolidge',
-    title: 'Coolidge Presidential Scholarship',
-    match: 92,
-    tag: 'Merit-Based',
-    deadline: 'Nov 15',
-    daysLeft: '62 days left',
-    urgent: false,
-    status: 'Saved to List',
-    statusTone: 'saved',
-    cta: 'Start Draft',
-    ctaIcon: 'edit_note',
-  },
-]
-
 export type ServiceCategory = 'writing' | 'audit' | 'mentorship' | 'intl'
 
 export interface Service {
@@ -189,46 +146,6 @@ export const services: Service[] = [
   },
 ]
 
-export interface SprintDay {
-  day: string
-  title: string
-  note: string
-  state: 'done' | 'active' | 'locked'
-}
-
-export const sprintDays: SprintDay[] = [
-  {
-    day: 'Day 1',
-    title: 'Core Values Brainstorming',
-    note: 'Completed • 3 reflections logged',
-    state: 'done',
-  },
-  {
-    day: 'Day 2',
-    title: '“Why This Major” Outline',
-    note: 'Completed • Mentor rubric satisfied',
-    state: 'done',
-  },
-  {
-    day: 'Day 3',
-    title: 'Hook & Narrative Arc Workshop',
-    note: 'Completed • Attended cohort replay',
-    state: 'done',
-  },
-  {
-    day: 'Day 4',
-    title: 'Peer Review Circle',
-    note: 'Submit your 650-word activities draft to receive targeted feedback from 2 cohort peers.',
-    state: 'active',
-  },
-  {
-    day: 'Day 5',
-    title: 'Addressing Feedback & Revision Strategy',
-    note: 'Unlocks tomorrow at 6:00 AM',
-    state: 'locked',
-  },
-]
-
 export interface SprintMilestone {
   id: string
   title: string
@@ -298,42 +215,6 @@ export const upcomingSprints: Sprint[] = [
     spots: '88 spots remaining',
     spotsTone: 'secondary',
     cta: 'Enroll Now',
-  },
-]
-
-export interface Cohort {
-  id: string
-  title: string
-  schedule: string
-  leads: string
-  enrolled: number
-  pace: string
-}
-
-export const cohorts: Cohort[] = [
-  {
-    id: 'cohort-ea',
-    title: 'Early Application Mastermind',
-    schedule: 'Tuesdays & Thursdays • 7 PM EST',
-    leads: 'Alex R. (Yale ’25) & Priya M. (Stanford ’26)',
-    enrolled: 248,
-    pace: 'Weekly live reviews',
-  },
-  {
-    id: 'cohort-rd',
-    title: 'Regular Decision Essay Circle',
-    schedule: 'Saturdays • 11 AM EST',
-    leads: 'Jordan H. (Harvard ’26)',
-    enrolled: 132,
-    pace: 'Peer review driven',
-  },
-  {
-    id: 'cohort-firstgen',
-    title: 'First-Gen Application Fellowship',
-    schedule: 'Sundays • 4 PM EST',
-    leads: 'Counselor Dan & Elena T. (Northwestern ’28)',
-    enrolled: 96,
-    pace: 'Mentor-led cohorts',
   },
 ]
 

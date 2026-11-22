@@ -239,7 +239,43 @@ function PostCard({
                 {tag}
               </span>
             ))}
+            {post.mediaLabel && (
+              <span className="flex items-center gap-1 rounded-full bg-surface-container-low px-2 py-0.5 font-label-xs text-label-xs font-semibold text-on-surface-variant">
+                <span className="material-symbols-outlined text-[13px] text-secondary">description</span>
+                {post.mediaLabel}
+              </span>
+            )}
           </div>
+
+          {post.verifiedAnswers && (
+            <div className="flex items-center gap-1.5 rounded-lg bg-secondary-container/40 px-2.5 py-1.5 font-label-xs text-label-xs font-semibold text-on-secondary-container">
+              <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                verified
+              </span>
+              {post.verifiedAnswers}
+            </div>
+          )}
+
+          {post.poll && post.poll.length > 0 && (
+            <div className="flex flex-col gap-1.5 rounded-xl bg-surface-container-low p-2.5">
+              {post.poll.map((o) => (
+                <div key={o.label} className="flex items-center gap-2">
+                  <span className="w-24 shrink-0 truncate font-label-xs text-label-xs font-semibold text-on-surface">
+                    {o.label}
+                  </span>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-container-highest">
+                    <div
+                      className={`h-full rounded-full ${o.tone === 'primary' ? 'bg-primary-container' : 'bg-secondary'}`}
+                      style={{ width: `${o.pct}%` }}
+                    />
+                  </div>
+                  <span className="w-8 shrink-0 text-right font-label-xs text-label-xs text-on-surface-variant">
+                    {o.pct}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
             <Link
