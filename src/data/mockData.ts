@@ -290,7 +290,7 @@ export const courses: Course[] = [
     ],
     cta: 'View Syllabus & Modules',
     ctaIcon: 'arrow_forward',
-    gradient: 'from-primary-container via-primary to-secondary-fixed',
+    gradient: 'from-primary-container to-inverse-primary',
     icon: 'auto_stories',
   },
   {
@@ -314,7 +314,7 @@ export const courses: Course[] = [
     ],
     cta: 'Enter Essay Lab',
     ctaIcon: 'edit_note',
-    gradient: 'from-secondary-fixed-dim via-secondary to-primary-container',
+    gradient: 'from-inverse-primary to-primary-fixed',
     icon: 'edit_note',
   },
   {
@@ -338,7 +338,7 @@ export const courses: Course[] = [
     ],
     cta: 'Explore Research Lab',
     ctaIcon: 'biotech',
-    gradient: 'from-tertiary-fixed-dim via-tertiary-container to-primary',
+    gradient: 'from-primary-fixed-dim to-primary-container',
     icon: 'biotech',
   },
   {
@@ -362,7 +362,7 @@ export const courses: Course[] = [
     ],
     cta: 'Start Pathway',
     ctaIcon: 'arrow_forward',
-    gradient: 'from-primary via-primary-container to-secondary-fixed',
+    gradient: 'from-primary-container to-primary-fixed',
     icon: 'account_balance',
   },
 ]
