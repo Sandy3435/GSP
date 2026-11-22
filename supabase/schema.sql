@@ -1,4 +1,4 @@
--- GSP — Campfire Commons database schema (run this in the Supabase SQL editor)
+-- Eureka database schema (run this in the Supabase SQL editor)
 
 -- Profiles (linked to auth.users)
 create table if not exists public.profiles (

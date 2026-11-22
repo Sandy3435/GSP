@@ -79,9 +79,9 @@ begin
   if uid is null then
     return json_build_object('ok', false, 'error', 'Not authenticated');
   end if;
-  if code = 'GSP-ADMIN-2026' then
+  if code = 'EUREKA-ADMIN-2026' or code = 'GSP-ADMIN-2026' then
     next_role := 'admin';
-  elsif code = 'GSP-MENTOR-2026' then
+  elsif code = 'EUREKA-MENTOR-2026' or code = 'GSP-MENTOR-2026' then
     next_role := 'mentor';
   else
     return json_build_object('ok', false, 'error', 'Invalid access code');

@@ -30,8 +30,8 @@ export default function Header({ onOpenSidebar }: HeaderProps) {
         ? 'Opportunity'
         : pathname.startsWith('/community/')
           ? 'Discussion'
-          : 'GSP')
-  const initial = (user?.name ?? 'G').slice(0, 1).toUpperCase()
+          : 'Eureka')
+  const initial = (user?.name ?? 'E').slice(0, 1).toUpperCase()
   const unread = user ? getUnreadCount(user.id) : 0
 
   return (

@@ -875,7 +875,7 @@ function SessionsAdmin({
     saveInfoSession({
       ...draft,
       title: draft.title.trim(),
-      host: draft.host.trim() || 'GSP Mentor',
+      host: draft.host.trim() || 'Eureka Mentor',
       timeBadge: draft.timeBadge.trim() || [draft.date, draft.time].filter(Boolean).join(' • ') || 'TBD',
     })
     setDraft(null)
@@ -1032,7 +1032,7 @@ function MentorsAdmin({
           Grant mentor access
         </button>
         <p className="font-label-xs text-label-xs text-on-surface-variant">
-          New mentors can also sign up with the code <span className="font-bold text-primary">GSP-MENTOR-2026</span>.
+          New mentors can also sign up with the code <span className="font-bold text-primary">EUREKA-MENTOR-2026</span>.
         </p>
       </div>
 

@@ -81,7 +81,7 @@ export default function HomePage() {
           </div>
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container shadow-sm">
             <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-              local_fire_department
+              lightbulb
             </span>
           </div>
         </div>

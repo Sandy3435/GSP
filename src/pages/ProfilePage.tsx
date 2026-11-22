@@ -237,7 +237,7 @@ export default function ProfilePage() {
     setAdminMsg('')
     const code = adminCode.trim().toUpperCase()
     const role: 'admin' | 'mentor' | null =
-      code === 'GSP-ADMIN-2026' ? 'admin' : code === 'GSP-MENTOR-2026' ? 'mentor' : null
+      code === 'EUREKA-ADMIN-2026' ? 'admin' : code === 'EUREKA-MENTOR-2026' ? 'mentor' : null
     if (!role) {
       setAdminMsg('Invalid access code.')
       return

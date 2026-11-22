@@ -1,6 +1,6 @@
-# GSP — Global Scholars Program
+# Eureka
 
-A mobile-first college-admissions platform for students, mentors, and administrators. GSP helps students discover and track scholarships, fly-in programs, and summer research opportunities, complete structured learning pathways, join accountability sprints, book mentor services, and ask questions in a community forum.
+A mobile-first college-admissions platform for students, mentors, and administrators. Eureka helps students discover and track scholarships, fly-in programs, and summer research opportunities, complete structured learning pathways, join accountability sprints, book mentor services, and ask questions in a community forum.
 
 ## Stack
 
@@ -8,6 +8,12 @@ A mobile-first college-admissions platform for students, mentors, and administra
 - **Tailwind CSS v4** (design tokens in `src/index.css`)
 - **React Router v7**
 - **Supabase** (Auth + PostgREST) with a localStorage fallback for demos
+
+## Brand
+
+- Primary: Eureka blue `#5170FF`, with black and white neutrals.
+- Font: Poppins.
+- Logo: a lightbulb mark + "Eureka" wordmark (`src/components/Logo.tsx`, `public/favicon.svg`).
 
 ## Getting started
 
@@ -40,8 +46,8 @@ All three are idempotent (safe to re-run).
 | Role | How to obtain |
 | --- | --- |
 | Student | Default on sign-up |
-| Mentor | Sign up / redeem with `GSP-MENTOR-2026` |
-| Admin | Sign up / redeem with `GSP-ADMIN-2026` |
+| Mentor | Sign up / redeem with `EUREKA-MENTOR-2026` |
+| Admin | Sign up / redeem with `EUREKA-ADMIN-2026` |
 
 Role is the source of truth on `profiles.role` and drives navigation and route guards.
 

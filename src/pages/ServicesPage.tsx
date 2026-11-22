@@ -89,7 +89,7 @@ export default function ServicesPage() {
           </div>
         </div>
         <p className="font-body-sm text-body-sm text-on-surface-variant">
-          Request support from GSP mentors. All services are included in Version 1.0 —
+          Request support from Eureka mentors. All services are included in Version 1.0 —
           no payment is collected in the platform.
         </p>
         <div className="relative w-full">

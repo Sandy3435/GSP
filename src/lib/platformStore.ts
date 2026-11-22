@@ -1,5 +1,5 @@
 /*
- * GSP platform data stores.
+ * Eureka platform data stores.
  *
  * Reads come from the localStorage cache so page code stays synchronous.
  * `hydratePlatformStore` refreshes that cache from Supabase when a user signs

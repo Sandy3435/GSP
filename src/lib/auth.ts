@@ -288,9 +288,9 @@ export async function signup(input: {
   adminCode?: string
 }): Promise<{ ok: true; user: AuthUser } | { ok: false; error: string }> {
   const role: UserRole =
-    input.adminCode === 'GSP-ADMIN-2026'
+    input.adminCode === 'EUREKA-ADMIN-2026'
       ? 'admin'
-      : input.adminCode === 'GSP-MENTOR-2026'
+      : input.adminCode === 'EUREKA-MENTOR-2026'
         ? 'mentor'
         : 'student'
 

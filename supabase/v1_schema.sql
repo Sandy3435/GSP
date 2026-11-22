@@ -1,5 +1,5 @@
 -- ============================================================================
--- GSP Version 1.0 schema migration
+-- Eureka Version 1.0 schema migration
 -- Run this once in the Supabase SQL editor (after schema.sql / fix_rls.sql).
 -- It is idempotent: safe to run more than once.
 -- ============================================================================
@@ -94,6 +94,8 @@ begin
   end if;
 
   next_role := case upper(trim(code))
+    when 'EUREKA-ADMIN-2026' then 'admin'
+    when 'EUREKA-MENTOR-2026' then 'mentor'
     when 'GSP-ADMIN-2026' then 'admin'
     when 'GSP-MENTOR-2026' then 'mentor'
     else null

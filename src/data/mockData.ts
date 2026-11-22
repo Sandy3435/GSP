@@ -1,6 +1,5 @@
 /*
- * GSP — Campfire Commons mock data
- * Content mirrors the imported Stitch design specs.
+ * Eureka mock data
  * Avatars are rendered as gradient + initials so the app is fully self-contained.
  */
 

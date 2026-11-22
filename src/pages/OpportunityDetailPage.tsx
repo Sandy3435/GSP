@@ -77,7 +77,7 @@ export default function OpportunityDetailPage() {
     tips.push(`Your nationality (${profile.nationality}) is relevant to this opportunity’s eligibility — verify the official rules before applying.`)
   }
   if (tips.length === 0) {
-    tips.push('Complete the academic and activities sections of your profile so GSP can personalise document guidance.')
+    tips.push('Complete the academic and activities sections of your profile so Eureka can personalise document guidance.')
   }
 
   const toggleSave = () => {

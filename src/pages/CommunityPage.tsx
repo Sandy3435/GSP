@@ -199,7 +199,7 @@ function PostCard({
       {post.pinned && (
         <div className="flex items-center gap-1.5 pb-1 font-label-xs text-label-xs text-secondary">
           <span className="material-symbols-outlined text-[16px] text-secondary">push_pin</span>
-          <span className="font-semibold uppercase tracking-wider">Pinned by GSP Mentor</span>
+          <span className="font-semibold uppercase tracking-wider">Pinned by Eureka Mentor</span>
         </div>
       )}
 
