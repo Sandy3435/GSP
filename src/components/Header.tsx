@@ -1,36 +1,13 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getUnreadCount } from '../lib/platformStore'
-
-const routeLabels: Record<string, string> = {
-  '/': 'Home',
-  '/courses': 'Courses',
-  '/opportunities': 'Opportunities',
-  '/community': 'Community',
-  '/sprints': 'Sprints',
-  '/services': 'Services',
-  '/profile': 'Profile',
-  '/notifications': 'Notifications',
-  '/admin': 'Admin',
-  '/mentor': 'Mentor',
-}
 
 interface HeaderProps {
   onOpenSidebar: () => void
 }
 
 export default function Header({ onOpenSidebar }: HeaderProps) {
-  const { pathname } = useLocation()
   const { user, logout } = useAuth()
-  const label =
-    routeLabels[pathname] ??
-    (pathname.startsWith('/courses/')
-      ? 'Course'
-      : pathname.startsWith('/opportunities/')
-        ? 'Opportunity'
-        : pathname.startsWith('/community/')
-          ? 'Discussion'
-          : 'Eureka')
   const initial = (user?.name ?? 'E').slice(0, 1).toUpperCase()
   const unread = user ? getUnreadCount(user.id) : 0
 
@@ -46,9 +23,6 @@ export default function Header({ onOpenSidebar }: HeaderProps) {
           >
             <span className="material-symbols-outlined text-[24px]">menu</span>
           </button>
-          <span className="hidden rounded-full bg-surface-container px-space-xs py-0.5 font-label-sm text-label-sm text-on-surface-variant/80 md:inline-block">
-            {label}
-          </span>
         </div>
 
         <div className="flex items-center gap-space-sm">

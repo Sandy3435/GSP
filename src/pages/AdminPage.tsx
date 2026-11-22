@@ -817,7 +817,7 @@ function SprintsAdmin({
               <button
                 type="button"
                 onClick={() => setExpanded(expanded === s.id ? null : s.id)}
-                className="flex w-max items-center gap-1 font-label-xs text-label-xs font-semibold text-secondary"
+                className="flex w-max items-center gap-1 font-label-xs text-label-xs font-semibold text-on-surface"
               >
                 <span className="material-symbols-outlined text-[15px]">group</span>
                 {expanded === s.id ? 'Hide participants' : 'View participants'}

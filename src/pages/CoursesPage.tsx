@@ -93,7 +93,7 @@ export default function CoursesPage() {
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-1.5 font-label-sm text-label-sm font-bold uppercase tracking-wider text-primary">
-              <span className="material-symbols-outlined text-[16px] text-secondary">play_circle</span>
+              <span className="material-symbols-outlined text-[16px] text-primary-container">play_circle</span>
               {inProgress ? 'Continue Learning' : 'Start Learning'}
             </span>
             <span className="font-label-xs text-label-xs text-on-surface-variant">
@@ -114,7 +114,7 @@ export default function CoursesPage() {
             </div>
             <div className="flex items-center justify-between gap-2 rounded-xl bg-surface-container-low p-3">
               <div className="flex min-w-0 items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-container-lowest text-secondary shadow-xs">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-container-lowest text-primary-container shadow-xs">
                   <span className="material-symbols-outlined text-[18px]">play_arrow</span>
                 </div>
                 <div className="min-w-0">
@@ -139,7 +139,7 @@ export default function CoursesPage() {
       <section className="flex flex-col gap-space-md">
         <div className="flex items-center justify-between">
           <h2 className="text-headline-sm font-semibold text-on-surface">Core Pathways &amp; Labs</h2>
-          <span className="font-label-sm text-label-sm font-semibold text-secondary">
+          <span className="font-label-sm text-label-sm font-semibold text-on-surface-variant">
             {courses.length} courses
           </span>
         </div>
@@ -205,7 +205,7 @@ export default function CoursesPage() {
               <div className="flex flex-wrap items-center gap-3 pt-1 font-label-xs text-label-xs text-on-surface-variant">
                 {course.stats.map((stat) => (
                   <span key={stat.label} className="flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[15px] text-secondary">{stat.icon}</span>
+                    <span className="material-symbols-outlined text-[15px] text-primary-container">{stat.icon}</span>
                     {stat.label}
                   </span>
                 ))}

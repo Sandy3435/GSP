@@ -318,15 +318,6 @@ export default function ProfilePage() {
             <p className="truncate font-body-sm text-body-sm text-on-surface-variant">
               {user.email}
             </p>
-            <span className="mt-1 inline-flex w-max items-center gap-1 rounded-full bg-secondary-container px-2 py-0.5 font-label-xs text-label-xs font-bold text-on-secondary-container">
-              <span
-                className="material-symbols-outlined text-[12px]"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
-                school
-              </span>
-              {user.role === 'admin' ? 'Admin' : user.role === 'mentor' ? 'Mentor' : 'Student'}
-            </span>
           </div>
         </div>
       </section>
@@ -413,7 +404,7 @@ export default function ProfilePage() {
             placeholder={BIO_EXAMPLE}
             className="w-full resize-none rounded-xl bg-surface-container-low p-3.5 font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary/40"
           />
-          <p className="font-label-xs text-label-xs text-on-surface-variant">
+          <p className="mt-2.5 font-label-xs text-label-xs leading-relaxed text-on-surface-variant">
             Required. Write 2–4 sentences about your academic background, interests, and aspirations.
           </p>
         </div>

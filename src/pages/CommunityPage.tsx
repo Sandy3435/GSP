@@ -197,8 +197,8 @@ function PostCard({
   return (
     <article className="relative flex flex-col gap-space-sm overflow-hidden rounded-xl bg-surface-container-lowest p-space-md shadow-sm">
       {post.pinned && (
-        <div className="flex items-center gap-1.5 pb-1 font-label-xs text-label-xs text-secondary">
-          <span className="material-symbols-outlined text-[16px] text-secondary">push_pin</span>
+        <div className="flex items-center gap-1.5 pb-1 font-label-xs text-label-xs text-primary-container">
+          <span className="material-symbols-outlined text-[16px] text-primary-container">push_pin</span>
           <span className="font-semibold uppercase tracking-wider">Pinned by Eureka Mentor</span>
         </div>
       )}
@@ -241,7 +241,7 @@ function PostCard({
             ))}
             {post.mediaLabel && (
               <span className="flex items-center gap-1 rounded-full bg-surface-container-low px-2 py-0.5 font-label-xs text-label-xs font-semibold text-on-surface-variant">
-                <span className="material-symbols-outlined text-[13px] text-secondary">description</span>
+                <span className="material-symbols-outlined text-[13px] text-primary-container">description</span>
                 {post.mediaLabel}
               </span>
             )}
@@ -386,7 +386,7 @@ function AskModal({
 
         <div className="flex items-center justify-between gap-2 pt-2">
           <div className="flex items-center gap-1 font-label-xs text-label-xs text-on-surface-variant">
-            <span className="material-symbols-outlined text-[16px] text-secondary">verified_user</span>
+            <span className="material-symbols-outlined text-[16px] text-primary-container">verified_user</span>
             <span>Peer &amp; mentor reviewed</span>
           </div>
           <button

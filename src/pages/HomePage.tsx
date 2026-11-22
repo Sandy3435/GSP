@@ -24,7 +24,7 @@ function greeting(): string {
 const timeBadgeTones: Record<string, string> = {
   error: 'bg-error-container text-on-error-container font-semibold',
   neutral: 'bg-surface-container text-on-surface-variant font-semibold',
-  secondary: 'bg-secondary-container text-on-secondary-container font-bold',
+  secondary: 'bg-primary-container text-on-primary font-bold',
 }
 
 export default function HomePage() {
@@ -79,11 +79,6 @@ export default function HomePage() {
                 : 'Your personalised college-prep dashboard'}
             </span>
           </div>
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container shadow-sm">
-            <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-              lightbulb
-            </span>
-          </div>
         </div>
       </section>
 
@@ -94,7 +89,7 @@ export default function HomePage() {
             <div className="flex items-start justify-between gap-space-sm">
               <div className="flex flex-col">
                 <div className="inline-flex w-max items-center gap-1.5 rounded-full bg-surface-container-lowest/15 px-2 py-0.5 backdrop-blur-md">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-secondary-fixed" />
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-primary-fixed" />
                   <span className="font-label-xs text-label-xs font-semibold uppercase tracking-wider text-primary-fixed">
                     Active sprint
                   </span>
@@ -103,7 +98,7 @@ export default function HomePage() {
                 <p className="font-label-sm text-label-sm text-primary-fixed/80">{activeSprint.meta}</p>
               </div>
               <div className="text-right">
-                <span className="text-headline-sm font-bold text-secondary-fixed">
+                <span className="text-headline-sm font-bold text-primary-fixed">
                   {activeSprint.enrolledUsers.length}
                 </span>
                 <p className="font-label-xs text-label-xs text-primary-fixed/80">students</p>
@@ -111,7 +106,7 @@ export default function HomePage() {
             </div>
 
             <div className="flex items-center gap-space-sm rounded-lg bg-primary/30 p-space-sm backdrop-blur-sm">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary-fixed/20 text-secondary-fixed">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed/20 text-primary-fixed">
                 <span className="material-symbols-outlined text-[18px]">checklist</span>
               </div>
               <div className="flex min-w-0 flex-1 flex-col">

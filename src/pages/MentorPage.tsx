@@ -247,7 +247,7 @@ export default function MentorPage() {
 function Stat({ label, value, icon }: { label: string; value: number; icon: string }) {
   return (
     <div className="flex flex-col items-center gap-1 rounded-xl bg-surface-container-lowest p-3 shadow-sm">
-      <span className="material-symbols-outlined text-[20px] text-secondary">{icon}</span>
+      <span className="material-symbols-outlined text-[20px] text-primary-container">{icon}</span>
       <span className="text-headline-sm font-bold text-primary">{value}</span>
       <span className="font-label-xs text-label-xs text-on-surface-variant">{label}</span>
     </div>
@@ -258,7 +258,7 @@ function Card({ title, icon, children }: { title: string; icon: string; children
   return (
     <section className="flex flex-col gap-2 rounded-2xl bg-surface-container-lowest p-space-md shadow-sm">
       <div className="flex items-center gap-2">
-        <span className="material-symbols-outlined text-[19px] text-secondary">{icon}</span>
+        <span className="material-symbols-outlined text-[19px] text-primary-container">{icon}</span>
         <h2 className="font-label-md text-label-md font-bold text-primary">{title}</h2>
       </div>
       {children}

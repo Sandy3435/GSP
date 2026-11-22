@@ -159,7 +159,7 @@ export default function ServicesPage() {
 
             {svc.mentorName && (
               <div className="flex items-center gap-1.5 font-label-xs text-label-xs text-on-surface-variant">
-                <span className="material-symbols-outlined text-[16px] text-secondary">school</span>
+                <span className="material-symbols-outlined text-[16px] text-primary-container">school</span>
                 Mentor: <span className="font-semibold text-on-surface">{svc.mentorName}</span>
               </div>
             )}

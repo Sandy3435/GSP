@@ -49,7 +49,7 @@ export function Avatar({
 
 export function MatchBadge({ score }: { score: number }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-secondary-container px-2 py-0.5 font-label-xs text-label-xs font-bold text-on-secondary-container">
+    <span className="inline-flex items-center gap-1 rounded-full bg-primary-container px-2 py-0.5 font-label-xs text-label-xs font-bold text-on-primary">
       <span
         className="material-symbols-outlined text-[13px]"
         style={{ fontVariationSettings: "'FILL' 1" }}
@@ -77,7 +77,7 @@ export function SectionHeader({
       <div className="flex items-center gap-1.5">
         {icon && (
           <span
-            className="material-symbols-outlined text-[22px] text-secondary"
+            className="material-symbols-outlined text-[22px] text-primary-container"
             style={{ fontVariationSettings: "'FILL' 1" }}
           >
             {icon}
@@ -95,7 +95,7 @@ export function SeeAllLink({ label, onClick }: { label: string; onClick?: () => 
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-0.5 font-label-sm text-label-sm font-semibold text-secondary hover:underline"
+      className="flex items-center gap-0.5 font-label-sm text-label-sm font-semibold text-on-surface hover:text-primary"
     >
       {label}
       <span className="material-symbols-outlined text-[16px]">chevron_right</span>
@@ -141,7 +141,7 @@ export function ProgressRing({ value }: { value: number }) {
           strokeWidth="3"
         />
         <path
-          className="stroke-current text-secondary"
+          className="stroke-current text-primary-container"
           d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
           fill="none"
           strokeDasharray={`${value}, 100`}

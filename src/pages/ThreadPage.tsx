@@ -108,7 +108,7 @@ export default function ThreadPage() {
 
             {post.mediaLabel && (
               <div className="mt-2 flex w-max items-center gap-1.5 rounded-lg bg-surface-container-low px-2.5 py-1 font-label-xs text-label-xs text-on-surface-variant">
-                <span className="material-symbols-outlined text-[15px] text-secondary">description</span>
+                <span className="material-symbols-outlined text-[15px] text-primary-container">description</span>
                 {post.mediaLabel}
               </div>
             )}
@@ -123,8 +123,8 @@ export default function ThreadPage() {
             )}
 
             {post.topAnswer && (
-              <div className="mt-2 rounded-xl border-l-2 border-secondary bg-surface-container-low p-3">
-                <p className="font-label-xs text-label-xs font-bold uppercase tracking-wider text-secondary">
+              <div className="mt-2 rounded-xl border-l-2 border-primary-container bg-surface-container-low p-3">
+                <p className="font-label-xs text-label-xs font-bold uppercase tracking-wider text-primary-container">
                   Top answer
                 </p>
                 <p className="mt-1 font-body-sm text-body-sm leading-relaxed text-on-surface">

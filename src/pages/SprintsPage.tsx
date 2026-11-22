@@ -208,7 +208,7 @@ function SprintDetail({
             <ul className="mt-1 flex flex-col gap-1">
               {sprint.objectives.map((objective) => (
                 <li key={objective} className="flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface">
-                  <span className="material-symbols-outlined mt-0.5 text-[15px] text-secondary">target</span>
+                  <span className="material-symbols-outlined mt-0.5 text-[15px] text-primary-container">target</span>
                   {objective}
                 </li>
               ))}
@@ -232,7 +232,7 @@ function SprintDetail({
 
         {sprint.mentorNames && sprint.mentorNames.length > 0 && (
           <div className="flex items-center gap-2 rounded-lg bg-surface-container-low p-2.5">
-            <span className="material-symbols-outlined text-[18px] text-secondary">school</span>
+            <span className="material-symbols-outlined text-[18px] text-primary-container">school</span>
             <div className="min-w-0">
               <p className="font-label-xs text-label-xs text-on-surface-variant">Assigned mentors</p>
               <p className="truncate font-label-sm text-label-sm font-semibold text-primary">

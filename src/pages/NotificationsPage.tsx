@@ -64,7 +64,7 @@ export default function NotificationsPage() {
           <button
             type="button"
             onClick={handleMarkAll}
-            className="font-label-sm text-label-sm font-semibold text-secondary hover:underline"
+            className="font-label-sm text-label-sm font-semibold text-on-surface hover:text-primary"
           >
             Mark all read
           </button>

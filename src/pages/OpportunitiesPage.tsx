@@ -184,7 +184,7 @@ export default function OpportunitiesPage() {
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-secondary-container px-2 py-0.5 font-label-xs text-label-xs font-bold text-on-secondary-container">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary-container px-2 py-0.5 font-label-xs text-label-xs font-bold text-on-primary">
                     <span
                       className="material-symbols-outlined text-[13px]"
                       style={{ fontVariationSettings: "'FILL' 1" }}
@@ -229,7 +229,7 @@ export default function OpportunitiesPage() {
                 <h2 className="text-headline-sm font-bold leading-snug text-primary">
                   {opp.title}
                 </h2>
-                <div className="flex items-center gap-1.5 text-secondary">
+                <div className="flex items-center gap-1.5 text-primary-container">
                   <span className="material-symbols-outlined text-[16px]">{opp.awardIcon}</span>
                   <span className="font-label-sm text-label-sm font-bold">{opp.award}</span>
                 </div>
@@ -265,7 +265,7 @@ export default function OpportunitiesPage() {
       </div>
 
       <div className="mt-2 flex flex-col items-center justify-center rounded-xl bg-surface-container-low p-4 text-center">
-        <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-surface-container text-secondary">
+        <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-surface-container text-primary-container">
           <span className="material-symbols-outlined text-[22px]">checklist</span>
         </div>
         <span className="font-label-md text-label-md font-bold text-primary">

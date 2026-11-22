@@ -139,7 +139,7 @@ export default function OpportunityDetailPage() {
         <h1 className="text-headline-lg-mobile font-bold leading-tight text-primary md:text-headline-lg">
           {opp.title}
         </h1>
-        <div className="flex items-center gap-2 text-secondary">
+        <div className="flex items-center gap-2 text-primary-container">
           <span className="material-symbols-outlined text-[18px]">{opp.awardIcon}</span>
           <span className="font-label-md text-label-md font-bold">{opp.award}</span>
         </div>
@@ -211,7 +211,7 @@ export default function OpportunityDetailPage() {
                 key={tip}
                 className="flex items-start gap-2 rounded-xl bg-secondary-container/30 p-3 font-body-sm text-body-sm text-on-surface"
               >
-                <span className="material-symbols-outlined mt-0.5 text-[18px] text-secondary">lightbulb</span>
+                <span className="material-symbols-outlined mt-0.5 text-[18px] text-primary-container">lightbulb</span>
                 {tip}
               </li>
             ))}
@@ -241,7 +241,7 @@ function Section({
   return (
     <section className="flex flex-col gap-3 rounded-2xl bg-surface-container-lowest p-space-lg shadow-sm">
       <div className="flex items-center gap-2">
-        <span className="material-symbols-outlined text-[20px] text-secondary">{icon}</span>
+        <span className="material-symbols-outlined text-[20px] text-primary-container">{icon}</span>
         <h2 className="text-headline-sm font-semibold text-primary">{title}</h2>
       </div>
       {children}
@@ -252,7 +252,7 @@ function Section({
 function Requirement({ text }: { text: string }) {
   return (
     <li className="flex items-start gap-2 font-body-sm text-body-sm text-on-surface">
-      <span className="material-symbols-outlined mt-0.5 text-[17px] text-secondary">check_circle</span>
+      <span className="material-symbols-outlined mt-0.5 text-[17px] text-primary-container">check_circle</span>
       {text}
     </li>
   )

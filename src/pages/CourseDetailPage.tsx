@@ -192,7 +192,7 @@ export default function CourseDetailPage() {
               rel="noreferrer"
               className="flex items-center gap-2 rounded-xl bg-surface-container-low p-3 font-label-sm text-label-sm text-on-surface"
             >
-              <span className="material-symbols-outlined text-[18px] text-secondary">description</span>
+              <span className="material-symbols-outlined text-[18px] text-primary-container">description</span>
               <span className="min-w-0 flex-1 truncate">{resource.label}</span>
               <span className="material-symbols-outlined text-[16px] text-on-surface-variant">download</span>
             </a>

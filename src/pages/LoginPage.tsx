@@ -108,7 +108,7 @@ export default function LoginPage() {
             New here?{' '}
             <Link
               to="/signup"
-              className="font-bold text-secondary hover:underline"
+              className="font-bold text-on-surface hover:text-primary"
             >
               Create an account
             </Link>
