@@ -111,29 +111,6 @@ function SidebarContent({
           )}
         </div>
 
-        {/* Streak card */}
-        <div className="flex items-center justify-between rounded-xl bg-surface-container-low p-space-sm">
-          <div className="flex items-center gap-2">
-            <span
-              className="material-symbols-outlined text-[22px] text-secondary"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              local_fire_department
-            </span>
-            <div className="flex flex-col">
-              <span className="font-label-xs text-label-xs font-bold text-on-surface">
-                5-Day Sprint Streak
-              </span>
-              <span className="font-label-xs text-label-xs text-on-surface-variant">
-                Keep the momentum!
-              </span>
-            </div>
-          </div>
-          <span className="rounded-full bg-secondary-container px-2 py-0.5 font-label-xs text-label-xs font-bold text-on-secondary-container">
-            Active
-          </span>
-        </div>
-
         <nav className="flex flex-col space-y-1">
           {navItems.map((item) => (
             <NavLink
