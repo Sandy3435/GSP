@@ -81,9 +81,9 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
 
-MAX_TEXT_CHARS = 30000       # cap page text sent to the model
-MAX_QUERY_URLS = 5           # max official URLs kept per discovery query
-MAX_FEED_ENTRIES = 20        # newest entries pulled per RSS feed (headroom for 10–15/day)
+MAX_TEXT_CHARS = 6000        # cap page text sent to the model (keeps Groq under its TPM limit)
+MAX_QUERY_URLS = 10          # DDG results fetched per discovery query
+MAX_FEED_ENTRIES = 25        # newest entries pulled per RSS feed (walk past top-of-feed dupes)
 
 # Per-source share of the --limit budget (queries : feeds : sources = 2 : 2 : 1) so
 # a large RSS backlog can't crowd out the custom queries.txt requests.
@@ -203,6 +203,7 @@ def extract_json_array(text: str):
 RETRYABLE_CODES = (429, 503)
 BACKOFF_SECONDS = 5         # wait between retries on 429/503
 THROTTLE_SECONDS = 6        # min gap between generate_content calls (free-tier RPM)
+GROQ_THROTTLE_SECONDS = 8   # min gap between Groq calls (free-tier tokens-per-minute)
 MAX_ATTEMPTS = 2            # attempts per model (1 retry) so a 503 outage fails over fast
 
 # Free-tier model fallback chain (tried in order after the configured model).
@@ -303,7 +304,7 @@ class Vetter:
         """Groq chat completion with retry/backoff."""
         last_err: Exception | None = None
         for attempt in range(MAX_ATTEMPTS):
-            self._throttle()
+            self._throttle(GROQ_THROTTLE_SECONDS)
             try:
                 resp = self._groq_call_once(prompt, system)
                 return (resp.choices[0].message.content or "") if resp.choices else ""
@@ -448,7 +449,7 @@ class Vetter:
 
 
 # ----------------------------------------------------------- DuckDuckGo (Source A)
-def ddg_search(query: str, max_results: int = 8) -> list[str]:
+def ddg_search(query: str, max_results: int = MAX_QUERY_URLS) -> list[str]:
     """Search the web with DuckDuckGo (no Gemini grounding, no API quota).
 
     Returns deduplicated, non-social, non-blog URLs from the top results. `ddgs` is
@@ -484,6 +485,27 @@ def ddg_search(query: str, max_results: int = 8) -> list[str]:
 
 
 # ----------------------------------------------------------------------- scraping
+# Standalone navigation/footer lines that carry no opportunity signal. These are
+# dropped before the page text is capped and sent to the model.
+BOILERPLATE_RE = re.compile(
+    r"(?i)^(menu|home|about|about us|contact|contact us|search|login|log in|"
+    r"sign up|signup|register|subscribe|follow us|share|read more|"
+    r"copyright.*|all rights reserved.*|privacy policy|privacy|"
+    r"terms of use|terms of service|terms & conditions|terms|cookies?|sitemap|"
+    r"back to top|skip to content|language|close|accept)$"
+)
+
+
+def trim_page_text(text: str, max_chars: int = MAX_TEXT_CHARS) -> str:
+    """Strip nav/footer boilerplate lines and cap the text to `max_chars` so the
+    model (and Groq's free tokens-per-minute limit) only sees the relevant content."""
+    if not text:
+        return ""
+    lines = [ln.strip() for ln in text.splitlines()]
+    kept = [ln for ln in lines if ln and len(ln) > 2 and not BOILERPLATE_RE.match(ln)]
+    return "\n".join(kept)[:max_chars]
+
+
 def scrape(url: str) -> dict:
     """Return {url,title,text,links,error} for a page rendered by Playwright."""
     out = {"url": url, "title": "", "text": "", "links": [], "error": None}
@@ -496,7 +518,7 @@ def scrape(url: str) -> dict:
                 page.goto(url, timeout=60000, wait_until="domcontentloaded")
                 page.wait_for_timeout(1500)
                 out["title"] = page.title() or ""
-                out["text"] = page.inner_text("body") or ""
+                out["text"] = trim_page_text(page.inner_text("body") or "")
                 out["links"] = page.eval_on_selector_all(
                     "a[href]", "els => els.map(e => e.href)"
                 )
@@ -754,7 +776,17 @@ def main() -> None:
 
     # 1) Discover candidate URLs from all three sources, each capped by its fair
     # share of --limit so a large RSS backlog can't crowd out queries.txt.
+    # Duplicate / already-seen / already-in-DB URLs are skipped and never count
+    # toward the budget, so the scraper walks past top-of-feed items it has
+    # already processed and keeps digging for fresh ones.
     candidates: list[tuple[str, str]] = []
+    seen: set[str] = set()   # normalized URLs already queued this run
+
+    existing_urls: set[str] = set()
+    for r in existing:
+        nu = normalize_url(r.get("application_link") or "")
+        if nu:
+            existing_urls.add(nu)
 
     search_budget, rss_budget, official_budget = source_budgets(limit)
     log(
@@ -762,10 +794,22 @@ def main() -> None:
         f"queries <= {search_budget}, feeds <= {rss_budget}, sources <= {official_budget}"
     )
 
+    def queue_candidate(url: str, source: str, skip_existing: bool) -> bool:
+        """Queue a URL only if it is new. Returns True when it was added (and so
+        counts toward the source budget / --limit)."""
+        nu = normalize_url(url)
+        if not nu or nu in seen:
+            return False
+        if skip_existing and nu in existing_urls:
+            return False
+        seen.add(nu)
+        candidates.append((url, source))
+        return True
+
     # Source A: DuckDuckGo search across every query in queries.txt (no Gemini quota).
-    search_added = 0
+    search_new = 0
     for q in queries:
-        if search_budget is not None and search_added >= search_budget:
+        if search_budget is not None and search_new >= search_budget:
             break
         if limit and len(candidates) >= limit:
             break
@@ -776,18 +820,18 @@ def main() -> None:
             log(f"  search error: {exc}")
             continue
         log(f"  ddg returned {len(urls)} candidate URL(s)")
-        for u in urls[:MAX_QUERY_URLS]:
-            if search_budget is not None and search_added >= search_budget:
+        for u in urls:
+            if search_budget is not None and search_new >= search_budget:
                 break
             if limit and len(candidates) >= limit:
                 break
-            candidates.append((u, "search"))
-            search_added += 1
+            if queue_candidate(u, "search", skip_existing=True):
+                search_new += 1
 
     # Source B: RSS feeds.
-    rss_added = 0
+    rss_new = 0
     for feed_url in feeds:
-        if rss_budget is not None and rss_added >= rss_budget:
+        if rss_budget is not None and rss_new >= rss_budget:
             break
         if limit and len(candidates) >= limit:
             break
@@ -796,7 +840,7 @@ def main() -> None:
             entries = fetch_feed_entries(feed_url)
             log(f"  pulled {len(entries)} entries")
             for entry in entries[:MAX_FEED_ENTRIES]:
-                if rss_budget is not None and rss_added >= rss_budget:
+                if rss_budget is not None and rss_new >= rss_budget:
                     break
                 if limit and len(candidates) >= limit:
                     break
@@ -808,32 +852,24 @@ def main() -> None:
                     log(f"  post scrape error: {post['error']}")
                     continue
                 official = vetter.resolve_official(link, external_links(link, post["links"]))
-                if official:
-                    candidates.append((official, "rss"))
-                    rss_added += 1
+                if official and queue_candidate(official, "rss", skip_existing=True):
+                    rss_new += 1
         except Exception as exc:  # noqa: BLE001
             log(f"  feed error: {exc}")
 
-    # Source C: direct official pages.
-    official_added = 0
+    # Source C: direct official pages (kept even if already in DB so sources.txt
+    # pages are re-checked for newly posted info sessions in step 3).
+    official_new = 0
     for u in sources:
-        if official_budget is not None and official_added >= official_budget:
+        if official_budget is not None and official_new >= official_budget:
             break
         if limit and len(candidates) >= limit:
             break
-        candidates.append((u, "official"))
-        official_added += 1
+        if queue_candidate(u, "official", skip_existing=False):
+            official_new += 1
 
-    # 2) De-duplicate candidates within this run (by normalized URL).
-    seen: set[str] = set()
-    unique: list[tuple[str, str]] = []
-    for url, source in candidates:
-        nu = normalize_url(url)
-        if not nu or nu in seen:
-            continue
-        seen.add(nu)
-        unique.append((url, source))
-
+    # 2) Candidates were deduplicated during discovery; apply the hard cap.
+    unique = candidates
     if limit:
         unique = unique[:limit]
 

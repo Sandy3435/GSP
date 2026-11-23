@@ -17,9 +17,10 @@ Evaluate every scraped opportunity in order. If it fails **Rule 0**, Stage 1, or
 
 Before any other check, confirm the page describes **one** specific opportunity whose application cycle is **currently open**. Reject (return `REJECTED`) when the page is any of the following:
 
-1. **Listicle / Roundup** — a page that lists many separate opportunities (e.g., *"30 Fully Funded Scholarships to Study Abroad"*, *"Top 10 Fellowships for 2027"*). Never insert these as a single record; the scraper unpacks their individual links. Reject with `"kind": "DIRECTORY_HUB"`.
-2. **Umbrella / Multi-Partner Hub** — a programme delivered through many separate partner universities, each running its own application cycle (e.g., the general *"Mastercard Foundation Scholars Program"* hub). Reject with `"kind": "DIRECTORY_HUB"` UNLESS the page is a single, specific partner's open portal (e.g., *"Mastercard Foundation Scholars Program at the University of Cambridge"*), which is a normal single opportunity.
-3. **Closed / Not-Yet-Open Cycle** — a single programme whose current application window is closed or has not yet opened. It is not actionable right now. Reject with `"kind": "NOT_OPEN"`.
+1. **Listicle / Roundup** — a page that lists many *separate* opportunities (e.g., *"30 Fully Funded Scholarships to Study Abroad"*, *"Top 10 Fellowships for 2027"*). Never insert these as a single record; the scraper unpacks their individual links. Reject with `"kind": "DIRECTORY_HUB"`.
+2. **Umbrella / Multi-Partner Hub** — a fund or programme delivered through many *separate partner universities*, each running its **own** application cycle and application route (e.g., the general *"Mastercard Foundation Scholars Program"* hub). Reject with `"kind": "DIRECTORY_HUB"` UNLESS the page is a single, specific partner's open portal (e.g., *"Mastercard Foundation Scholars Program at the University of Cambridge"*), which is a normal single opportunity.
+3. **Multiple study levels are still ONE opportunity (APPROVE)** — a single official programme that covers Bachelor's, Master's, and PhD (or many subjects) under **one** official body with **one** application route — e.g., the *DAAD scholarships* or the *France Excellence Eiffel* programme — is a SINGLE opportunity, **not** an umbrella hub. **APPROVE it.** Only reject true multi-university partner hubs and multi-program blog listicles.
+4. **Closed / Not-Yet-Open Cycle** — a single programme whose current application window is closed or has not yet opened. It is not actionable right now. Reject with `"kind": "NOT_OPEN"`.
 
 Rule 0 rejection shape (include the `kind` field so the scraper can act on it):
 
