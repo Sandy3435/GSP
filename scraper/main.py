@@ -81,7 +81,7 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
 MAX_TEXT_CHARS = 30000       # cap page text sent to the model
 MAX_QUERY_URLS = 5           # max official URLs kept per discovery query
 MAX_SEARCH_QUERIES = 2       # hard cap on grounded search queries per run (quota)
-MAX_FEED_ENTRIES = 5         # newest entries visited per RSS feed
+MAX_FEED_ENTRIES = 15        # newest entries pulled per RSS feed (daily yield)
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
@@ -330,22 +330,38 @@ class Vetter:
         return urls
 
     def resolve_official(self, post_url: str, candidates: list[str]) -> str | None:
-        """Source B: pick the official URL from candidate links (no grounding)."""
+        """Source B: pick the official URL from candidate links. Works without
+        Gemini via heuristics (so RSS keeps yielding even when Gemini is down)."""
         if not candidates:
             return None
         if len(candidates) == 1:
             return candidates[0]
-        prompt = (
-            "The following are outbound links on an opportunity aggregator blog post. "
-            "Identify the single official application/host URL (the program's own website).\n\n"
-            f"Post URL: {post_url}\n"
-            "Candidate links:\n" + "\n".join(candidates) + "\n\n"
-            "Return ONLY the chosen URL, or the word NONE if none qualify."
-        )
-        resp = self.gemini_generate(prompt, system=None, grounding=False)
-        m = re.search(r"https?://[^\s\"'<>]+", resp.text or "")
-        if m:
-            return m.group(0).rstrip(".,)]}")
+
+        # Heuristic 1: institutional hosts (.edu/.gov) are almost always official.
+        for c in candidates:
+            if urlparse(c).netloc.lower().endswith((".edu", ".gov")):
+                return c
+        # Heuristic 2: URLs whose path/slug mentions applying or the program.
+        for c in candidates:
+            if re.search(r"apply|scholarship|fellowship|grant|programme|program|admission", c.lower()):
+                return c
+        # Heuristic 3: ask Gemini if it is available.
+        if self.gemini and not self._gemini_down:
+            try:
+                prompt = (
+                    "The following are outbound links on an opportunity aggregator blog post. "
+                    "Identify the single official application/host URL (the program's own website).\n\n"
+                    f"Post URL: {post_url}\n"
+                    "Candidate links:\n" + "\n".join(candidates) + "\n\n"
+                    "Return ONLY the chosen URL, or the word NONE if none qualify."
+                )
+                resp = self.gemini_generate(prompt, system=None, grounding=False)
+                m = re.search(r"https?://[^\s\"'<>]+", resp.text or "")
+                if m:
+                    return m.group(0).rstrip(".,)]}")
+            except Exception:  # noqa: BLE001
+                pass
+        # Fallback: first candidate.
         return candidates[0]
 
     def vet(self, url: str, page_text: str):
@@ -480,6 +496,43 @@ def external_links(post_url: str, links: list[str]) -> list[str]:
             continue
         out.append(lnk)
     return list(dict.fromkeys(out))
+
+
+def fetch_feed_entries(feed_url: str) -> list:
+    """Fetch an RSS feed's entries, first with feedparser + a realistic
+    User-Agent, then with a Playwright-rendered fetch as a fallback."""
+    headers = {
+        "User-Agent": UA,
+        "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*;q=0.8",
+    }
+    # 1) feedparser with a browser UA.
+    try:
+        parsed = feedparser.parse(feed_url, request_headers=headers)
+        if getattr(parsed, "entries", None):
+            return parsed.entries
+        log(f"  feedparser returned no entries (bozo={getattr(parsed, 'bozo', None)})")
+    except Exception as exc:  # noqa: BLE001
+        log(f"  feedparser error: {exc}")
+
+    # 2) Playwright fallback: fetch the raw feed body and re-parse.
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            try:
+                ctx = browser.new_context(user_agent=UA)
+                page = ctx.new_page()
+                resp = page.goto(feed_url, timeout=60000, wait_until="domcontentloaded")
+                body = resp.text() if resp else ""
+                browser.close()
+                if body:
+                    parsed = feedparser.parse(body)
+                    if getattr(parsed, "entries", None):
+                        return parsed.entries
+            finally:
+                browser.close()
+    except Exception as exc:  # noqa: BLE001
+        log(f"  playwright feed fetch error: {exc}")
+    return []
 
 
 # ----------------------------------------------------------------------- supabase
@@ -677,8 +730,9 @@ def main() -> None:
             break
         log(f"Source B (rss): {feed_url}")
         try:
-            parsed = feedparser.parse(feed_url)
-            for entry in parsed.entries[:MAX_FEED_ENTRIES]:
+            entries = fetch_feed_entries(feed_url)
+            log(f"  pulled {len(entries)} entries")
+            for entry in entries[:MAX_FEED_ENTRIES]:
                 if limit and len(candidates) >= limit:
                     break
                 link = entry.get("link")
