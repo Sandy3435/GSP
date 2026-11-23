@@ -17,6 +17,7 @@ import type { Course, Opportunity, Service } from '../data/mockData'
 const OPPS_KEY = 'gsp_opps'
 const COURSES_KEY = 'gsp_courses'
 const SERVICES_KEY = 'gsp_services'
+const INFO_SESSIONS_KEY = 'gsp_info_sessions'
 const HIDDEN_KEY = 'gsp_hidden_content'
 const ID_MAP_KEY = 'gsp_id_map'
 
@@ -55,6 +56,12 @@ function dbIdFor(kind: string, id: string): string {
     writeIdMap(map)
   }
   return map[key]
+}
+
+/* Read-only lookup that never claims a new id (used on read paths). */
+function resolveDbId(kind: string, id: string): string | undefined {
+  if (UUID_RE.test(id)) return id
+  return readIdMap()[`${kind}:${id}`]
 }
 
 function readLocal<T>(key: string, seed: T[]): T[] {
@@ -432,10 +439,106 @@ export async function deleteService(id: string): Promise<void> {
   )
 }
 
+// ---------- Linked info sessions ----------
+/*
+ * Info sessions are attached to an opportunity. They have no published flag of
+ * their own — visibility is inherited from the parent opportunity (enforced in
+ * SQL via the "info_sessions read published" policy). `sessionDate` is an ISO
+ * date string (YYYY-MM-DD).
+ */
+export interface OpportunityInfoSession {
+  id: string
+  opportunityId: string
+  title: string
+  sessionDate: string
+  sessionTime: string
+  registrationLink: string
+}
+
+function mapInfoSession(r: Row): OpportunityInfoSession {
+  return {
+    id: r.id as string,
+    opportunityId: (r.opportunity_id as string) ?? '',
+    title: (r.title as string) ?? '',
+    sessionDate: (r.session_date as string) ?? '',
+    sessionTime: (r.session_time as string) ?? '',
+    registrationLink: (r.registration_link as string) ?? '',
+  }
+}
+
+function infoSessionRow(s: OpportunityInfoSession, dbId: string): Row {
+  return {
+    id: s.id,
+    opportunity_id: dbId,
+    title: s.title,
+    session_date: s.sessionDate,
+    session_time: s.sessionTime,
+    registration_link: s.registrationLink,
+  }
+}
+
+export async function getOpportunityInfoSessions(
+  opportunityId: string,
+): Promise<OpportunityInfoSession[]> {
+  const dbId = resolveDbId('opps', opportunityId)
+  let server: OpportunityInfoSession[] = []
+  if (isSupabaseConfigured && dbId) {
+    const { data, error } = await supabase
+      .from('info_sessions')
+      .select('*')
+      .eq('opportunity_id', dbId)
+      .order('session_date', { ascending: true })
+    if (!error && data) {
+      server = (data as Record<string, unknown>[]).map((r) => ({
+        ...mapInfoSession(r),
+        opportunityId,
+      }))
+    }
+  }
+  const local = readLocal<OpportunityInfoSession>(INFO_SESSIONS_KEY, []).filter(
+    (s) => s.opportunityId === opportunityId,
+  )
+  const byId = new Map(local.map((s) => [s.id, s]))
+  const serverIds = new Set(server.map((s) => s.id))
+  const merged = [
+    ...server.map((s) => (byId.has(s.id) ? { ...byId.get(s.id), ...s } : s)),
+    ...local.filter((s) => !serverIds.has(s.id)),
+  ]
+  return merged.sort((a, b) => a.sessionDate.localeCompare(b.sessionDate))
+}
+
+export async function saveOpportunityInfoSession(
+  session: OpportunityInfoSession,
+): Promise<void> {
+  const dbId = dbIdFor('opps', session.opportunityId)
+  if (isSupabaseConfigured) {
+    const { error } = await supabase
+      .from('info_sessions')
+      .upsert(infoSessionRow(session, dbId))
+    if (error) console.error('saveOpportunityInfoSession:', error.message)
+  }
+  const list = readLocal<OpportunityInfoSession>(INFO_SESSIONS_KEY, [])
+  const idx = list.findIndex((s) => s.id === session.id)
+  if (idx >= 0) list[idx] = session
+  else list.push(session)
+  writeLocal(INFO_SESSIONS_KEY, list)
+}
+
+export async function deleteOpportunityInfoSession(id: string): Promise<void> {
+  if (isSupabaseConfigured) {
+    await supabase.from('info_sessions').delete().eq('id', id)
+  }
+  writeLocal(
+    INFO_SESSIONS_KEY,
+    readLocal<OpportunityInfoSession>(INFO_SESSIONS_KEY, []).filter((s) => s.id !== id),
+  )
+}
+
 export function resetStore(): void {
   localStorage.removeItem(OPPS_KEY)
   localStorage.removeItem(COURSES_KEY)
   localStorage.removeItem(SERVICES_KEY)
+  localStorage.removeItem(INFO_SESSIONS_KEY)
   localStorage.removeItem(HIDDEN_KEY)
   localStorage.removeItem(ID_MAP_KEY)
 }

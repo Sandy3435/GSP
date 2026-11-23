@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getPublishedOpportunities } from '../lib/store'
+import { getPublishedOpportunities, getOpportunityInfoSessions } from '../lib/store'
+import type { OpportunityInfoSession } from '../lib/store'
 import {
   getInfoSessions,
   getPublishedSprints,
@@ -34,6 +35,33 @@ export default function HomePage() {
   const [sessions, setSessions] = useState<LiveSession[]>([])
   const [opps, setOpps] = useState<Opportunity[]>([])
   const [joinedSprints, setJoinedSprints] = useState<(Sprint & { enrolledUsers: string[] })[]>([])
+  const [linkedSessions, setLinkedSessions] = useState<
+    { session: OpportunityInfoSession; opp: Opportunity }[]
+  >([])
+
+  const loadLinkedSessions = async (userId: string) => {
+    const savedIds = getSavedOpportunityIds(userId)
+    if (savedIds.length === 0) {
+      setLinkedSessions([])
+      return
+    }
+    const all = await getPublishedOpportunities()
+    const saved = all.filter((o) => savedIds.includes(o.id))
+    const today = new Date().toISOString().slice(0, 10)
+    const rows: { session: OpportunityInfoSession; opp: Opportunity }[] = []
+    for (const opp of saved) {
+      const sessions = await getOpportunityInfoSessions(opp.id)
+      for (const s of sessions) {
+        if (!s.title.trim()) continue
+        if (s.sessionDate && s.sessionDate < today) continue // only upcoming
+        rows.push({ session: s, opp })
+      }
+    }
+    rows.sort((a, b) =>
+      (a.session.sessionDate || '').localeCompare(b.session.sessionDate || ''),
+    )
+    setLinkedSessions(rows)
+  }
 
   useEffect(() => {
     setSessions(getInfoSessions().filter((s) => s.published !== false && s.audience !== 'mentors'))
@@ -41,6 +69,9 @@ export default function HomePage() {
     if (user) {
       setJoinedSprints(getUserSprints(user.id))
       setAttending(getSessionRsvps(user.id))
+      loadLinkedSessions(user.id)
+    } else {
+      setLinkedSessions([])
     }
   }, [user])
 
@@ -206,6 +237,47 @@ export default function HomePage() {
           })}
         </div>
       </section>
+
+      {/* Linked info sessions for saved opportunities */}
+      {linkedSessions.length > 0 && (
+        <section className="flex flex-col space-y-space-sm">
+          <SectionHeader icon="event" title="Info sessions from your saved list" />
+          <div className="flex flex-col gap-2">
+            {linkedSessions.map(({ session, opp }) => (
+              <div
+                key={session.id}
+                className="flex items-start justify-between gap-3 rounded-xl bg-surface-container-lowest p-space-md shadow-sm"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-label-sm text-label-sm font-bold text-on-surface">
+                    {session.title}
+                  </p>
+                  <p className="truncate font-label-xs text-label-xs text-on-surface-variant">
+                    {opp.title}
+                  </p>
+                  {(session.sessionDate || session.sessionTime) && (
+                    <p className="mt-1 flex items-center gap-1 font-label-xs text-label-xs font-semibold text-primary-container">
+                      <span className="material-symbols-outlined text-[14px]">schedule</span>
+                      {[session.sessionDate, session.sessionTime].filter(Boolean).join(' • ')}
+                    </p>
+                  )}
+                </div>
+                {session.registrationLink && (
+                  <a
+                    href={session.registrationLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex h-9 shrink-0 items-center gap-1 rounded-lg bg-primary-container px-3 font-label-xs text-label-xs font-bold text-on-primary"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">open_in_new</span>
+                    Register
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Suggested opportunities */}
       <section className="flex flex-col space-y-space-sm">

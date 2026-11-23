@@ -3,15 +3,19 @@ import { useAuth } from '../context/AuthContext'
 import {
   deleteCourse,
   deleteOpportunity,
+  deleteOpportunityInfoSession,
   deleteService,
   getCourses,
   getOpportunities,
+  getOpportunityInfoSessions,
   getServices,
   newContentId,
   saveCourse,
   saveOpportunity,
+  saveOpportunityInfoSession,
   saveService,
 } from '../lib/store'
+import type { OpportunityInfoSession } from '../lib/store'
 import {
   getBookings,
   getInfoSessions,
@@ -288,14 +292,21 @@ function OpportunitiesAdmin({ opps, onChange }: { opps: Opportunity[]; onChange:
   const [firstGenOnly, setFirstGenOnly] = useState(false)
   const [lowIncomeOnly, setLowIncomeOnly] = useState(false)
   const [urmOnly, setUrmOnly] = useState(false)
+  const [infoSessions, setInfoSessions] = useState<OpportunityInfoSession[]>([])
+  const [originalInfoSessions, setOriginalInfoSessions] = useState<OpportunityInfoSession[]>([])
 
   const openCreate = () => {
     setDraft(emptyOpp())
     resetExtras(emptyOpp())
+    setInfoSessions([])
+    setOriginalInfoSessions([])
   }
-  const openEdit = (opp: Opportunity) => {
+  const openEdit = async (opp: Opportunity) => {
     setDraft({ ...opp })
     resetExtras(opp)
+    const sessions = await getOpportunityInfoSessions(opp.id)
+    setInfoSessions(sessions)
+    setOriginalInfoSessions(sessions)
   }
   const resetExtras = (opp: Opportunity) => {
     setTags(opp.tags.join(', '))
@@ -312,6 +323,27 @@ function OpportunitiesAdmin({ opps, onChange }: { opps: Opportunity[]; onChange:
     setUrmOnly(Boolean(opp.eligibility?.urmOnly))
   }
   const patch = (p: Partial<Opportunity>) => setDraft((d) => (d ? { ...d, ...p } : d))
+
+  const addInfoSession = () => {
+    if (!draft) return
+    setInfoSessions((prev) => [
+      ...prev,
+      {
+        id: newContentId('is'),
+        opportunityId: draft.id,
+        title: '',
+        sessionDate: '',
+        sessionTime: '',
+        registrationLink: '',
+      },
+    ])
+  }
+  const updateInfoSession = (id: string, patch: Partial<OpportunityInfoSession>) => {
+    setInfoSessions((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)))
+  }
+  const removeInfoSession = (id: string) => {
+    setInfoSessions((prev) => prev.filter((s) => s.id !== id))
+  }
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -335,6 +367,24 @@ function OpportunitiesAdmin({ opps, onChange }: { opps: Opportunity[]; onChange:
       requiredDocuments: splitLines(docs),
       eligibility,
     })
+
+    // Reconcile linked info sessions. They inherit publish visibility from the
+    // opportunity (no separate toggle), enforced by the info_sessions RLS.
+    for (const s of infoSessions) {
+      if (s.title.trim()) {
+        await saveOpportunityInfoSession({
+          ...s,
+          opportunityId: draft.id,
+          title: s.title.trim(),
+        })
+      }
+    }
+    for (const s of originalInfoSessions) {
+      if (!infoSessions.some((d) => d.id === s.id)) {
+        await deleteOpportunityInfoSession(s.id)
+      }
+    }
+
     setDraft(null)
     onChange()
   }
@@ -398,6 +448,50 @@ function OpportunitiesAdmin({ opps, onChange }: { opps: Opportunity[]; onChange:
               <Toggle label="URM only" checked={urmOnly} onChange={setUrmOnly} size="sm" />
               <Toggle label="Leadership required" checked={requiresLeadership} onChange={setRequiresLeadership} size="sm" />
             </div>
+          </div>
+
+          <div className="rounded-xl bg-surface-container-low p-space-md">
+            <div className="flex items-center justify-between">
+              <p className="font-label-xs text-label-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                Linked info sessions ({infoSessions.length})
+              </p>
+              <button
+                type="button"
+                onClick={addInfoSession}
+                className="flex h-7 items-center gap-1 rounded-lg bg-primary-container px-2 font-label-xs text-label-xs font-bold text-on-primary"
+              >
+                <span className="material-symbols-outlined text-[15px]">add</span>
+                Add session
+              </button>
+            </div>
+            <p className="mb-2 mt-0.5 font-label-xs text-label-xs text-on-surface-variant">
+              Sessions are only visible to students while this opportunity is published.
+            </p>
+            {infoSessions.length === 0 && (
+              <p className="font-label-xs text-label-xs text-on-surface-variant">
+                No info sessions linked yet.
+              </p>
+            )}
+            {infoSessions.map((s) => (
+              <div key={s.id} className="mb-2 rounded-lg bg-surface-container-lowest p-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-label-xs text-label-xs font-bold text-on-surface">Info session</span>
+                  <button type="button" onClick={() => removeInfoSession(s.id)} aria-label="Remove session" className="text-error">
+                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                  </button>
+                </div>
+                <div className="mt-1 grid grid-cols-2 gap-2">
+                  <div className="col-span-2">
+                    <AdminField label="Title" value={s.title} onChange={(v) => updateInfoSession(s.id, { title: v })} placeholder="Info session title" />
+                  </div>
+                  <AdminField label="Date" value={s.sessionDate} onChange={(v) => updateInfoSession(s.id, { sessionDate: v })} type="date" />
+                  <AdminField label="Time" value={s.sessionTime} onChange={(v) => updateInfoSession(s.id, { sessionTime: v })} placeholder="6:00 PM EST" />
+                  <div className="col-span-2">
+                    <AdminField label="Registration link" value={s.registrationLink} onChange={(v) => updateInfoSession(s.id, { registrationLink: v })} placeholder="https://..." />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
 
           <button type="submit" className="flex h-11 items-center justify-center gap-2 rounded-xl bg-primary-container font-label-md text-label-md font-bold text-on-primary">

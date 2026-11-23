@@ -359,5 +359,36 @@ drop policy if exists "progress own" on public.lesson_progress;
 create policy "progress own" on public.lesson_progress
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+-- ----------------------------------------------------- linked info sessions --
+-- Info sessions are attached to an opportunity and inherit their visibility
+-- from it: a session is only readable while its parent opportunity is
+-- published, so toggling the opportunity's publish flag also toggles its
+-- sessions. `session_date` is stored as an ISO date string (YYYY-MM-DD).
+create table if not exists public.info_sessions (
+  id uuid primary key default gen_random_uuid(),
+  opportunity_id uuid references public.opportunities(id) on delete cascade,
+  title text,
+  session_date text,
+  session_time text,
+  registration_link text,
+  created_at timestamptz default now()
+);
+
+alter table public.info_sessions enable row level security;
+
+drop policy if exists "info_sessions read published" on public.info_sessions;
+create policy "info_sessions read published" on public.info_sessions
+  for select using (
+    exists (
+      select 1 from public.opportunities o
+      where o.id = info_sessions.opportunity_id
+        and o.published is not false
+    )
+  );
+
+drop policy if exists "info_sessions admin write" on public.info_sessions;
+create policy "info_sessions admin write" on public.info_sessions
+  for all using (public.is_admin()) with check (public.is_admin());
+
 -- ------------------------------------------------------------ verification --
 -- select id, email, name, role from public.profiles order by created_at;
