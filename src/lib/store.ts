@@ -176,7 +176,7 @@ export async function getOpportunities(): Promise<Opportunity[]> {
         data.map((r) => mapOpportunity(r as Record<string, unknown>)),
         local,
       ),
-      [...local, ...seedOpportunities],
+      seedOpportunities,
     )
   }
   return mergeSeeds('opps', readLocal(OPPS_KEY, []), seedOpportunities)
@@ -279,7 +279,7 @@ export async function getCourses(): Promise<Course[]> {
         data.map((r) => mapCourse(r as Record<string, unknown>)),
         local,
       ),
-      [...local, ...seedCourses],
+      seedCourses,
     )
   }
   return mergeSeeds('courses', readLocal(COURSES_KEY, []), seedCourses)
@@ -377,7 +377,7 @@ export async function getServices(): Promise<Service[]> {
         data.map((r) => mapService(r as Record<string, unknown>)),
         local,
       ),
-      [...local, ...seedServices],
+      seedServices,
     )
   }
   return mergeSeeds('services', readLocal(SERVICES_KEY, []), seedServices)
