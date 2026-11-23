@@ -29,6 +29,28 @@ const sorts: { id: SortId; label: string }[] = [
   { id: 'name', label: 'A–Z' },
 ]
 
+const COUNTRIES = [
+  'United States', 'United Kingdom', 'Canada', 'Australia', 'Nigeria', 'Kenya',
+  'Ghana', 'South Africa', 'India', 'Pakistan', 'Bangladesh', 'China', 'Japan',
+  'Germany', 'France', 'Netherlands', 'Brazil', 'Mexico', 'Philippines',
+  'Indonesia', 'Malaysia', 'Egypt', 'Turkey', 'United Arab Emirates',
+]
+
+function matchesCountry(opp: Opportunity, country: string): boolean {
+  const e = opp.eligibility
+  if (!e) return true
+  const countries = e.countries ?? []
+  const nationalities = e.nationalities ?? []
+  if (
+    countries.includes('Global') ||
+    nationalities.includes('Global') ||
+    (countries.length === 0 && nationalities.length === 0)
+  ) {
+    return true
+  }
+  return countries.includes(country) || nationalities.includes(country)
+}
+
 export default function OpportunitiesPage() {
   const { user, profile } = useAuth()
   const [filter, setFilter] = useState<FilterId>('all')
@@ -37,6 +59,8 @@ export default function OpportunitiesPage() {
   const [sortOpen, setSortOpen] = useState(false)
   const [opps, setOpps] = useState<Opportunity[]>([])
   const [savedIds, setSavedIds] = useState<string[]>([])
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(null)
+  const [countryFilter, setCountryFilter] = useState<string>('auto')
 
   useEffect(() => {
     getPublishedOpportunities().then(setOpps)
@@ -44,6 +68,31 @@ export default function OpportunitiesPage() {
   useEffect(() => {
     if (user) setSavedIds(getSavedOpportunityIds(user.id))
   }, [user])
+  useEffect(() => {
+    // Detect the visitor's country once per visit (cached in sessionStorage).
+    const cached = sessionStorage.getItem('eureka_visitor_country')
+    if (cached) {
+      setDetectedCountry(cached)
+      return
+    }
+    fetch('https://ipapi.co/json/')
+      .then((r) => r.json())
+      .then((data) => {
+        const c = data?.country_name
+        if (c) {
+          sessionStorage.setItem('eureka_visitor_country', c)
+          setDetectedCountry(c)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  const activeCountry =
+    countryFilter === 'auto'
+      ? detectedCountry
+      : countryFilter === 'all'
+        ? null
+        : countryFilter
 
   const scored = useMemo(
     () => opps.map((opp) => ({ opp, score: matchScore(profile, opp.eligibility) })),
@@ -68,15 +117,27 @@ export default function OpportunitiesPage() {
         opp.tags.some((t) => t.toLowerCase().includes(q))
       return matchesFilter && matchesQuery
     })
+    let sorted: typeof list
     switch (sort) {
       case 'match':
-        return [...list].sort((a, b) => b.score - a.score)
+        sorted = [...list].sort((a, b) => b.score - a.score)
+        break
       case 'deadline':
-        return [...list].sort((a, b) => a.opp.daysLeft - b.opp.daysLeft)
-      case 'name':
-        return [...list].sort((a, b) => a.opp.title.localeCompare(b.opp.title))
+        sorted = [...list].sort((a, b) => a.opp.daysLeft - b.opp.daysLeft)
+        break
+      default:
+        sorted = [...list].sort((a, b) => a.opp.title.localeCompare(b.opp.title))
     }
-  }, [filter, sort, query, scored, savedIds])
+    // Prioritize (stable-sort) opportunities eligible for the active country.
+    if (activeCountry) {
+      sorted = sorted.sort(
+        (a, b) =>
+          (matchesCountry(a.opp, activeCountry) ? 0 : 1) -
+          (matchesCountry(b.opp, activeCountry) ? 0 : 1),
+      )
+    }
+    return sorted
+  }, [filter, sort, query, scored, savedIds, activeCountry])
 
   const toggleBookmark = (id: string) => {
     if (!user) return
@@ -124,6 +185,26 @@ export default function OpportunitiesPage() {
             </button>
           ))}
         </div>
+
+        <label className="flex items-center gap-2">
+          <span className="flex items-center gap-1 font-label-xs text-label-xs font-semibold text-on-surface-variant">
+            <span className="material-symbols-outlined text-[15px]">location_on</span>
+            Country
+          </span>
+          <select
+            value={countryFilter}
+            onChange={(e) => setCountryFilter(e.target.value)}
+            className="h-9 rounded-lg bg-surface-container-lowest px-2.5 font-label-xs text-label-xs text-on-surface shadow-sm focus:outline-none focus:ring-2 focus:ring-secondary/40"
+          >
+            <option value="auto">
+              {detectedCountry ? `Auto (${detectedCountry})` : 'Auto'}
+            </option>
+            <option value="all">All countries</option>
+            {COUNTRIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </label>
       </section>
 
       <div className="flex items-center justify-between px-0.5">
@@ -177,6 +258,7 @@ export default function OpportunitiesPage() {
 
         {visible.map(({ opp, score }) => {
           const saved = savedIds.includes(opp.id)
+          const eligibleHere = activeCountry ? matchesCountry(opp, activeCountry) : true
           return (
             <article
               key={opp.id}
@@ -193,6 +275,14 @@ export default function OpportunitiesPage() {
                     </span>
                     {score}% Match
                   </span>
+                  {activeCountry && eligibleHere && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-secondary-container px-2 py-0.5 font-label-xs text-label-xs font-bold text-on-secondary-container">
+                      <span className="material-symbols-outlined text-[13px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                        location_on
+                      </span>
+                      Eligible in {activeCountry}
+                    </span>
+                  )}
                   {opp.tags.map((tag) => (
                     <span
                       key={tag}

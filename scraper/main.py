@@ -13,27 +13,35 @@ Three discovery sources:
   B. RSS feeds (feeds.txt)                  -> resolve aggregator post -> official URL
   C. Direct official pages (sources.txt)    -> monitored for updates/new info sessions
 
+Dual-AI vetting: Gemini performs the initial extraction + 3-stage vet, then Groq
+(llama-3.3-70b-versatile) independently re-audits every Gemini approval for hidden
+fees / pay-to-play flags / wrong country names. If Gemini hits 429/503, Groq takes
+over as primary so the pipeline never stops. Grounding is used ONLY for Source A.
+
 Deduplication happens BEFORE vetting (by normalized application_link and page
-title) so we never waste Gemini calls. `sources.txt` pages that already exist are
-still re-checked for newly posted info sessions.
+title) so we never waste AI calls. `sources.txt` pages that already exist are still
+re-checked for newly posted info sessions.
 
 Required environment variables:
   SUPABASE_URL               e.g. https://<project>.supabase.co
   SUPABASE_SERVICE_ROLE_KEY  service_role key (bypasses RLS so the scraper can write)
   GEMINI_API_KEY             Google AI Studio key (Search grounding enabled)
+  GROQ_API_KEY               Groq key (free second-brain verifier + Gemini fallback)
 
 Optional:
   GEMINI_MODEL               default: gemini-3.8-flash
+  GROQ_MODEL                 default: qwen/qwen3.8-27b (llama-3.3-70b-versatile is retired)
 
 Usage:
   pip install -r requirements.txt
   playwright install chromium
-  python main.py
+  python main.py [--limit N]
 """
 
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import os
 import re
@@ -43,6 +51,7 @@ from urllib.parse import urlparse
 
 import feedparser
 from dotenv import load_dotenv
+from groq import Groq
 from playwright.sync_api import sync_playwright
 from supabase import create_client
 
@@ -65,10 +74,13 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
 
 MAX_TEXT_CHARS = 30000       # cap page text sent to the model
 MAX_QUERY_URLS = 5           # max official URLs kept per discovery query
+MAX_SEARCH_QUERIES = 2       # hard cap on grounded search queries per run (quota)
 MAX_FEED_ENTRIES = 5         # newest entries visited per RSS feed
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -91,11 +103,14 @@ ELIGIBILITY_DEFAULTS = {
     "requiresLeadership": False,
 }
 
-# Domains we never treat as the "official" application host.
+# Domains we never treat as the "official" application host (social, CMS/blogging
+# platforms, and generic footers that show up in RSS aggregator posts).
 BLOCKED_DOMAINS = (
     "facebook.com", "twitter.com", "x.com", "instagram.com", "linkedin.com",
     "youtube.com", "youtu.be", "t.me", "wa.me", "whatsapp.com", "google.com",
     "drive.google.com", "docs.google.com",
+    "wordpress.org", "wordpress.com", "medium.com", "blogger.com", "wix.com",
+    "squarespace.com", "weebly.com", "tumblr.com", "gravatar.com",
 )
 
 
@@ -184,25 +199,30 @@ def _build_model_chain(primary: str) -> list[str]:
 
 
 class Vetter:
-    """Gemini wrapper with retry/backoff, throttling, model fallback, and a
-    no-grounding fallback so free-tier quota limits degrade gracefully."""
+    """Dual-AI pipeline: Gemini is the primary extractor/vetter (Search grounding
+    used only for Source A discovery); Groq (llama-3.3-70b) is a free second-brain
+    auditor and the fallback when Gemini hits 429/503. Retry/backoff + throttling
+    keep everything inside free-tier limits."""
 
-    def __init__(self, api_key: str, model: str, skill: str):
-        self.client = genai.Client(api_key=api_key)
+    def __init__(self, gemini_key: str, groq_key: str, model: str, skill: str):
+        self.gemini = genai.Client(api_key=gemini_key) if gemini_key else None
+        self.groq = Groq(api_key=groq_key) if groq_key else None
+        self.groq_model = GROQ_MODEL
         self.skill = skill
         self.model_chain = _build_model_chain(model)
         self._last_call_ts = 0.0
+        self._gemini_down = False
 
     # -- low-level helpers ------------------------------------------------------
-    def _throttle(self) -> None:
+    def _throttle(self, seconds: int = THROTTLE_SECONDS) -> None:
         elapsed = time.monotonic() - self._last_call_ts
-        if elapsed < THROTTLE_SECONDS:
-            time.sleep(THROTTLE_SECONDS - elapsed)
+        if elapsed < seconds:
+            time.sleep(seconds - elapsed)
         self._last_call_ts = time.monotonic()
 
-    def _call_once(self, model: str, prompt: str, system: str | None, grounding: bool):
+    def _gemini_call_once(self, model: str, prompt: str, system: str | None, grounding: bool):
         tools = [types.Tool(google_search=types.GoogleSearch())] if grounding else None
-        return self.client.models.generate_content(
+        return self.gemini.models.generate_content(
             model=model,
             contents=prompt,
             config=types.GenerateContentConfig(
@@ -210,6 +230,15 @@ class Vetter:
                 tools=tools,
                 temperature=0.1,
             ),
+        )
+
+    def _groq_call_once(self, prompt: str, system: str | None):
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+        return self.groq.chat.completions.create(
+            model=self.groq_model, messages=messages, temperature=0.1,
         )
 
     @staticmethod
@@ -223,14 +252,11 @@ class Vetter:
         m = re.search(r"\b(429|503)\b", str(exc))
         return int(m.group(1)) if m else None
 
-    def generate(self, prompt: str, system: str | None, grounding: bool = True,
-                 fallback_ungrounded: bool = True):
-        """Call Gemini with retries + model fallback.
-
-        If `grounding` is requested and `fallback_ungrounded` is True, a second
-        pass without Search grounding is attempted when the grounded calls hit
-        quota (429), so page-text-only vetting still works.
-        """
+    def gemini_generate(self, prompt: str, system: str | None, grounding: bool = True,
+                        fallback_ungrounded: bool = True):
+        """Gemini call with retries + model fallback (raises if all exhausted)."""
+        if self._gemini_down:
+            raise RuntimeError("Gemini disabled for this run (quota exhausted)")
         modes = [True, False] if (grounding and fallback_ungrounded) else ([True] if grounding else [False])
         last_err: Exception | None = None
         for mode in modes:
@@ -238,24 +264,41 @@ class Vetter:
                 for attempt in range(MAX_ATTEMPTS):
                     self._throttle()
                     try:
-                        resp = self._call_once(model, prompt, system, mode)
+                        resp = self._gemini_call_once(model, prompt, system, mode)
                         if grounding and not mode:
-                            log(f"  [{model}] grounding disabled for this call (quota fallback)")
+                            log(f"  [gemini:{model}] grounding disabled (quota fallback)")
                         return resp
                     except Exception as exc:  # noqa: BLE001
                         last_err = exc
                         code = self._error_code(exc)
                         if code in RETRYABLE_CODES:
                             log(
-                                f"  [{model}] {code} (attempt {attempt + 1}/{MAX_ATTEMPTS}); "
+                                f"  [gemini:{model}] {code} (attempt {attempt + 1}/{MAX_ATTEMPTS}); "
                                 f"backing off {BACKOFF_SECONDS}s"
                             )
                             time.sleep(BACKOFF_SECONDS)
                         else:
-                            # Non-retryable (e.g. 404 model gone) -> try next model.
-                            log(f"  [{model}] error (code {code}): {str(exc)[:80]}")
+                            log(f"  [gemini:{model}] error (code {code}): {str(exc)[:80]}")
                             break
+        # All Gemini models/attempts exhausted -> mark Gemini down so the rest of
+        # the run goes straight to the Groq fallback instead of re-retrying.
+        self._gemini_down = True
         raise (last_err if last_err else RuntimeError("all Gemini attempts failed"))
+
+    def groq_generate(self, prompt: str, system: str | None) -> str:
+        """Groq chat completion with retry/backoff."""
+        last_err: Exception | None = None
+        for attempt in range(MAX_ATTEMPTS):
+            self._throttle()
+            try:
+                resp = self._groq_call_once(prompt, system)
+                return (resp.choices[0].message.content or "") if resp.choices else ""
+            except Exception as exc:  # noqa: BLE001
+                last_err = exc
+                code = self._error_code(exc)
+                log(f"  [groq] error (code {code}) attempt {attempt + 1}/{MAX_ATTEMPTS}: {str(exc)[:80]}")
+                time.sleep(BACKOFF_SECONDS)
+        raise (last_err if last_err else RuntimeError("Groq failed"))
 
     # -- higher-level calls -----------------------------------------------------
     def grounding_urls(self, resp) -> list[str]:
@@ -272,15 +315,14 @@ class Vetter:
         return list(dict.fromkeys(u for u in urls if u))
 
     def discover(self, query: str) -> list[str]:
-        """Source A: use grounded Gemini to surface official URLs for a query.
-        Grounding is essential here, so no ungrounded fallback."""
+        """Source A: grounded Gemini search (the ONLY place grounding is used)."""
         prompt = (
             f'Search the web for: "{query}"\n\n'
             "Return ONLY a JSON array of strings: the official application URLs "
             "(the .edu/.gov/.org program host pages, not aggregator blogs) for new "
             "2027/2028 opportunities matching the query. If none, return []."
         )
-        resp = self.generate(prompt, system=None, grounding=True, fallback_ungrounded=False)
+        resp = self.gemini_generate(prompt, system=None, grounding=True, fallback_ungrounded=False)
         parsed = extract_json_array(resp.text or "")
         urls = [u for u in (parsed or []) if isinstance(u, str) and u.startswith("http")]
         if not urls:
@@ -288,7 +330,7 @@ class Vetter:
         return urls
 
     def resolve_official(self, post_url: str, candidates: list[str]) -> str | None:
-        """Source B: pick the single official application URL from candidate links."""
+        """Source B: pick the official URL from candidate links (no grounding)."""
         if not candidates:
             return None
         if len(candidates) == 1:
@@ -300,14 +342,15 @@ class Vetter:
             "Candidate links:\n" + "\n".join(candidates) + "\n\n"
             "Return ONLY the chosen URL, or the word NONE if none qualify."
         )
-        resp = self.generate(prompt, system=None, grounding=True, fallback_ungrounded=True)
+        resp = self.gemini_generate(prompt, system=None, grounding=False)
         m = re.search(r"https?://[^\s\"'<>]+", resp.text or "")
         if m:
             return m.group(0).rstrip(".,)]}")
         return candidates[0]
 
     def vet(self, url: str, page_text: str):
-        """Run the full 3-stage vet + extraction, returning APPROVED/REJECTED JSON."""
+        """Two-stage vet: Gemini extracts + 3-stage vets (no grounding), then Groq
+        independently re-audits any Gemini approval before insert."""
         prompt = (
             "Vet and extract the following scraped opportunity page according to the "
             "system instructions.\n\n"
@@ -316,11 +359,69 @@ class Vetter:
             'Return ONLY valid JSON: either {"status":"REJECTED","stage":"...","reason":"..."} '
             'or the APPROVED object with "status", "opportunity", and "info_sessions" keys.'
         )
-        resp = self.generate(prompt, system=self.skill, grounding=True, fallback_ungrounded=True)
-        return extract_json(resp.text or "")
+
+        # Stage 1: Gemini (fall back to Groq if Gemini is quota-limited).
+        result = None
+        primary = "gemini"
+        if self.gemini:
+            try:
+                resp = self.gemini_generate(prompt, system=self.skill, grounding=False)
+                result = extract_json(resp.text or "")
+                if not result:
+                    raise ValueError("Gemini returned no parseable JSON")
+            except Exception as exc:  # noqa: BLE001
+                log(f"  Gemini vet failed (code {self._error_code(exc)}); falling back to Groq")
+                result = None
+
+        if result is None:
+            if not self.groq:
+                return None
+            try:
+                resp = self.groq_generate(prompt, system=self.skill)
+                result = extract_json(resp)
+                primary = "groq"
+            except Exception as exc:  # noqa: BLE001
+                log(f"  Groq fallback also failed: {exc}")
+                return None
+
+        if not result or result.get("status") != "APPROVED":
+            return result
+
+        # Stage 2: Groq second independent audit (only when Gemini was primary).
+        if primary == "gemini" and self.groq:
+            try:
+                audit = self._groq_audit(url, page_text, result)
+                if audit:
+                    if audit.get("verdict") == "REJECTED":
+                        return {
+                            "status": "REJECTED",
+                            "stage": "AUDIT",
+                            "reason": audit.get("reason") or "Groq second audit rejected",
+                        }
+                    if isinstance(audit.get("corrections"), dict):
+                        opp = result.get("opportunity") or {}
+                        result["opportunity"] = {**opp, **audit["corrections"]}
+            except Exception as exc:  # noqa: BLE001
+                log(f"  Groq audit failed ({exc}); trusting Gemini output")
+        return result
+
+    def _groq_audit(self, url: str, page_text: str, gemini_json):
+        """Second-brain check: hidden fees, pay-to-play flags, wrong country names."""
+        prompt = (
+            "You are a second independent auditor for an opportunity vetting pipeline. "
+            "Re-check the opportunity below for hidden fees, pay-to-play red flags, and "
+            "wrong or non-standard country/nationality names.\n\n"
+            f"OFFICIAL PAGE URL: {url}\n\n"
+            "PAGE TEXT:\n" + page_text[:MAX_TEXT_CHARS] + "\n\n"
+            "GEMINI OUTPUT:\n" + json.dumps(gemini_json, ensure_ascii=False) + "\n\n"
+            'Return ONLY JSON: {"verdict":"APPROVED"} or {"verdict":"REJECTED","reason":"..."}. '
+            'Optionally include "corrections" as a flat object of opportunity fields to patch.'
+        )
+        resp = self.groq_generate(prompt, system=self.skill)
+        return extract_json(resp)
 
     def extract_sessions(self, url: str, page_text: str) -> list[dict]:
-        """Cheap extraction of only info sessions (used for existing sources.txt pages)."""
+        """Extract info sessions (no grounding) for existing sources.txt pages."""
         prompt = (
             "Extract any upcoming live info sessions, webinars, AMA/Q&A, or office hours "
             "mentioned on this opportunity page.\n\n"
@@ -328,7 +429,18 @@ class Vetter:
             "Return ONLY a JSON array of objects with keys: title, session_date (YYYY-MM-DD), "
             "session_time (with timezone), registration_link. If none, return []."
         )
-        resp = self.generate(prompt, system=None, grounding=True, fallback_ungrounded=True)
+        try:
+            resp = self.gemini_generate(prompt, system=None, grounding=False)
+        except Exception as exc:  # noqa: BLE001
+            log(f"  Gemini session extraction failed ({self._error_code(exc)}); using Groq")
+            if not self.groq:
+                return []
+            try:
+                resp_text = self.groq_generate(prompt, system=None)
+                parsed = extract_json_array(resp_text)
+                return [s for s in (parsed or []) if isinstance(s, dict)]
+            except Exception:  # noqa: BLE001
+                return []
         parsed = extract_json_array(resp.text or "")
         return [s for s in (parsed or []) if isinstance(s, dict)]
 
@@ -413,6 +525,11 @@ def insert_opportunity(supabase, opp: dict) -> str:
     opp = dict(opp)
     opp["eligibility"] = sanitize_eligibility(opp.get("eligibility"))
     opp["published"] = False  # always insert as draft for admin review
+    # Normalize deadline_date to YYYY-MM-DD or None (rolling = None).
+    dd = opp.get("deadline_date")
+    if dd is not None and not re.match(r"^\d{4}-\d{2}-\d{2}$", str(dd).strip()):
+        dd = None
+    opp["deadline_date"] = str(dd).strip() if dd else None
     res = supabase.table("opportunities").insert(opp).execute()
     if not res.data:
         raise RuntimeError(f"insert returned no rows: {res}")
@@ -461,6 +578,43 @@ def insert_new_sessions(supabase, opp_id: str, sessions) -> int:
     return len(rows)
 
 
+# ------------------------------------------------------------ expiration cleanup
+def cleanup(supabase) -> None:
+    """Delete past info sessions and auto-unpublish expired opportunities.
+
+    Prints the one-line migration for the `deadline_date` column (which the user
+    runs once in the Supabase SQL editor) and degrades gracefully if it is not
+    present yet.
+    """
+    today = datetime.date.today().isoformat()  # YYYY-MM-DD
+    log("Cleanup: removing past info sessions and expiring past opportunities")
+
+    try:
+        res = supabase.table("info_sessions").delete().lt("session_date", today).execute()
+        n = len(res.data or [])
+        if n:
+            log(f"  deleted {n} past info session(s)")
+    except Exception as exc:  # noqa: BLE001
+        log(f"  info_sessions cleanup error: {exc}")
+
+    log(
+        "  If not run yet, add the deadline column in Supabase:\n"
+        "    alter table public.opportunities add column if not exists deadline_date text;"
+    )
+    try:
+        res = (
+            supabase.table("opportunities")
+            .update({"published": False})
+            .lt("deadline_date", today)
+            .execute()
+        )
+        n = len(res.data or [])
+        if n:
+            log(f"  unpublished {n} expired opportunity/opportunities")
+    except Exception as exc:  # noqa: BLE001
+        log(f"  opportunities expiration error (deadline_date column missing?): {exc}")
+
+
 # -------------------------------------------------------------------------- main
 def main() -> None:
     parser = argparse.ArgumentParser(description="Eureka 3-in-1 opportunity scraper")
@@ -476,13 +630,16 @@ def main() -> None:
     log("Eureka 3-in-1 scraper starting")
     if limit:
         log(f"Running with --limit {limit}")
-    if not GEMINI_API_KEY:
-        log("ERROR: GEMINI_API_KEY is not set.")
+    if not GEMINI_API_KEY and not GROQ_API_KEY:
+        log("ERROR: GEMINI_API_KEY or GROQ_API_KEY must be set.")
         sys.exit(1)
 
     skill = load_skill()
-    vetter = Vetter(GEMINI_API_KEY, GEMINI_MODEL, skill)
+    vetter = Vetter(GEMINI_API_KEY, GROQ_API_KEY, GEMINI_MODEL, skill)
     supabase = get_supabase()
+
+    # 0) Expiration cleanup before discovering anything new.
+    cleanup(supabase)
 
     queries = read_lines(QUERIES_FILE)
     feeds = read_lines(FEEDS_FILE)
@@ -494,11 +651,11 @@ def main() -> None:
     # 1) Discover candidate URLs from all three sources.
     candidates: list[tuple[str, str]] = []
 
-    # Cap how many search queries run: each query yields up to MAX_QUERY_URLS URLs,
-    # so `limit` candidates need at most ceil(limit / MAX_QUERY_URLS) queries.
-    max_queries = len(queries)
+    # Cap grounded search queries: hard cap of MAX_SEARCH_QUERIES, plus the
+    # --limit cap (each query yields up to MAX_QUERY_URLS URLs).
+    max_queries = min(len(queries), MAX_SEARCH_QUERIES)
     if limit:
-        max_queries = max(1, min(max_queries, (limit + MAX_QUERY_URLS - 1) // MAX_QUERY_URLS))
+        max_queries = min(max_queries, max(1, (limit + MAX_QUERY_URLS - 1) // MAX_QUERY_URLS))
     log(f"Running up to {max_queries} search quer{'y' if max_queries == 1 else 'ies'}")
 
     for q in queries[:max_queries]:

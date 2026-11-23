@@ -83,6 +83,7 @@ Output valid JSON with three top-level keys: `"status": "APPROVED"`, `"opportuni
     "award_icon": "string - Default: 'workspace_premium' (or 'flight_takeoff', 'school', 'payments')",
     "summary": "string - 2-3 crisp sentences summarizing the opportunity + any major funding caveat",
     "deadline": "string - Standardized date e.g. 'Jan 15, 2027' or 'Rolling'",
+    "deadline_date": "YYYY-MM-DD or null - Machine-readable deadline; null when rolling/no fixed deadline",
     "days_left": 30,
     "full_ride": false,
     "fly_in": false,
@@ -130,7 +131,8 @@ Output valid JSON with three top-level keys: `"status": "APPROVED"`, `"opportuni
 | `award` | `award` | text | |
 | `award_icon` | `award_icon` | text | default `'workspace_premium'` |
 | `summary` | `summary` | text | |
-| `deadline` | `deadline` | text | |
+| `deadline` | `deadline` | text | human-readable (e.g. `'Jan 15, 2027'` or `'Rolling'`) |
+| `deadline_date` | `deadline_date` | text \| null | `YYYY-MM-DD`; `null` for rolling/no fixed deadline |
 | `days_left` | `days_left` | int | default `30` |
 | `full_ride` | `full_ride` | boolean | default `false` |
 | `fly_in` | `fly_in` | boolean | default `false` |

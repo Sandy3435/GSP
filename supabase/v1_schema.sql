@@ -39,6 +39,7 @@ alter table public.opportunities
   add column if not exists required_documents text[] default '{}',
   add column if not exists instructions text default '',
   add column if not exists application_link text default '',
+  add column if not exists deadline_date text,
   add column if not exists published boolean default true;
 
 -- --------------------------------------------------------------- courses ----
