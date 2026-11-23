@@ -9,14 +9,16 @@ the Eureka Supabase backend. It reads the vetting rules strictly from
 `opportunities` + `info_sessions` table schemas.
 
 Three discovery sources:
-  A. Google Search Discovery (queries.txt)  -> Gemini + Google Search grounding
+  A. Web search (queries.txt)               -> DuckDuckGo (ddgs) -> official URLs
   B. RSS feeds (feeds.txt)                  -> resolve aggregator post -> official URL
   C. Direct official pages (sources.txt)    -> monitored for updates/new info sessions
 
 Dual-AI vetting: Gemini performs the initial extraction + 3-stage vet, then Groq
-(llama-3.3-70b-versatile) independently re-audits every Gemini approval for hidden
-fees / pay-to-play flags / wrong country names. If Gemini hits 429/503, Groq takes
-over as primary so the pipeline never stops. Grounding is used ONLY for Source A.
+independently re-audits every Gemini approval for hidden fees / pay-to-play flags /
+wrong country names. If Gemini hits 429/503, Groq takes over as primary so the
+pipeline never stops. Source A discovery uses DuckDuckGo (ddgs) instead of Gemini
+Search grounding, so queries.txt keeps working even when Gemini's grounding quota
+is exhausted (429).
 
 Deduplication happens BEFORE vetting (by normalized application_link and page
 title) so we never waste AI calls. `sources.txt` pages that already exist are still
@@ -25,7 +27,7 @@ re-checked for newly posted info sessions.
 Required environment variables:
   SUPABASE_URL               e.g. https://<project>.supabase.co
   SUPABASE_SERVICE_ROLE_KEY  service_role key (bypasses RLS so the scraper can write)
-  GEMINI_API_KEY             Google AI Studio key (Search grounding enabled)
+  GEMINI_API_KEY             Google AI Studio key (extraction + vetting only)
   GROQ_API_KEY               Groq key (free second-brain verifier + Gemini fallback)
 
 Optional:
@@ -43,6 +45,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import math
 import os
 import re
 import sys
@@ -80,8 +83,15 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
 
 MAX_TEXT_CHARS = 30000       # cap page text sent to the model
 MAX_QUERY_URLS = 5           # max official URLs kept per discovery query
-MAX_SEARCH_QUERIES = 2       # hard cap on grounded search queries per run (quota)
 MAX_FEED_ENTRIES = 20        # newest entries pulled per RSS feed (headroom for 10–15/day)
+
+# Per-source share of the --limit budget (queries : feeds : sources = 2 : 2 : 1) so
+# a large RSS backlog can't crowd out the custom queries.txt requests.
+SEARCH_WEIGHT = 2
+RSS_WEIGHT = 2
+OFFICIAL_WEIGHT = 1
+_TOTAL_WEIGHT = SEARCH_WEIGHT + RSS_WEIGHT + OFFICIAL_WEIGHT
+
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
@@ -124,6 +134,17 @@ def read_lines(path: str) -> list[str]:
         return []
     with open(path, "r", encoding="utf-8") as f:
         return [ln.strip() for ln in f if ln.strip() and not ln.lstrip().startswith("#")]
+
+
+def source_budgets(limit: int | None) -> tuple[int | None, int | None, int | None]:
+    """Split --limit across the three sources (2:2:1) so no one source crowds out
+    the others. Returns (None, None, None) when there is no limit."""
+    if not limit:
+        return None, None, None
+    search = max(1, math.ceil(limit * SEARCH_WEIGHT / _TOTAL_WEIGHT))
+    rss = max(1, math.floor(limit * RSS_WEIGHT / _TOTAL_WEIGHT))
+    official = max(1, math.floor(limit * OFFICIAL_WEIGHT / _TOTAL_WEIGHT))
+    return search, rss, official
 
 
 def load_skill() -> str:
@@ -180,9 +201,9 @@ def extract_json_array(text: str):
 
 # ------------------------------------------------------------------- Gemini client
 RETRYABLE_CODES = (429, 503)
-BACKOFF_SECONDS = 30        # wait between retries on 429/503
+BACKOFF_SECONDS = 5         # wait between retries on 429/503
 THROTTLE_SECONDS = 6        # min gap between generate_content calls (free-tier RPM)
-MAX_ATTEMPTS = 3            # attempts per model per mode
+MAX_ATTEMPTS = 2            # attempts per model (1 retry) so a 503 outage fails over fast
 
 # Free-tier model fallback chain (tried in order after the configured model).
 # gemini-2.5-* are deprecated for new accounts; the 3.x "lite" models share the
@@ -199,10 +220,11 @@ def _build_model_chain(primary: str) -> list[str]:
 
 
 class Vetter:
-    """Dual-AI pipeline: Gemini is the primary extractor/vetter (Search grounding
-    used only for Source A discovery); Groq (llama-3.3-70b) is a free second-brain
-    auditor and the fallback when Gemini hits 429/503. Retry/backoff + throttling
-    keep everything inside free-tier limits."""
+    """Dual-AI pipeline: Gemini is the primary extractor/vetter; Groq is a free
+    second-brain auditor and the fallback when Gemini hits 429/503. Discovery no
+    longer uses Gemini Search grounding — Source A queries go through DuckDuckGo
+    (ddgs) instead. Retry/backoff + throttling keep everything inside free-tier
+    limits."""
 
     def __init__(self, gemini_key: str, groq_key: str, model: str, skill: str):
         self.gemini = genai.Client(api_key=gemini_key) if gemini_key else None
@@ -220,14 +242,12 @@ class Vetter:
             time.sleep(seconds - elapsed)
         self._last_call_ts = time.monotonic()
 
-    def _gemini_call_once(self, model: str, prompt: str, system: str | None, grounding: bool):
-        tools = [types.Tool(google_search=types.GoogleSearch())] if grounding else None
+    def _gemini_call_once(self, model: str, prompt: str, system: str | None):
         return self.gemini.models.generate_content(
             model=model,
             contents=prompt,
             config=types.GenerateContentConfig(
                 system_instruction=system,
-                tools=tools,
                 temperature=0.1,
             ),
         )
@@ -252,34 +272,28 @@ class Vetter:
         m = re.search(r"\b(429|503)\b", str(exc))
         return int(m.group(1)) if m else None
 
-    def gemini_generate(self, prompt: str, system: str | None, grounding: bool = True,
-                        fallback_ungrounded: bool = True):
+    def gemini_generate(self, prompt: str, system: str | None):
         """Gemini call with retries + model fallback (raises if all exhausted)."""
         if self._gemini_down:
             raise RuntimeError("Gemini disabled for this run (quota exhausted)")
-        modes = [True, False] if (grounding and fallback_ungrounded) else ([True] if grounding else [False])
         last_err: Exception | None = None
-        for mode in modes:
-            for model in self.model_chain:
-                for attempt in range(MAX_ATTEMPTS):
-                    self._throttle()
-                    try:
-                        resp = self._gemini_call_once(model, prompt, system, mode)
-                        if grounding and not mode:
-                            log(f"  [gemini:{model}] grounding disabled (quota fallback)")
-                        return resp
-                    except Exception as exc:  # noqa: BLE001
-                        last_err = exc
-                        code = self._error_code(exc)
-                        if code in RETRYABLE_CODES:
-                            log(
-                                f"  [gemini:{model}] {code} (attempt {attempt + 1}/{MAX_ATTEMPTS}); "
-                                f"backing off {BACKOFF_SECONDS}s"
-                            )
-                            time.sleep(BACKOFF_SECONDS)
-                        else:
-                            log(f"  [gemini:{model}] error (code {code}): {str(exc)[:80]}")
-                            break
+        for model in self.model_chain:
+            for attempt in range(MAX_ATTEMPTS):
+                self._throttle()
+                try:
+                    return self._gemini_call_once(model, prompt, system)
+                except Exception as exc:  # noqa: BLE001
+                    last_err = exc
+                    code = self._error_code(exc)
+                    if code in RETRYABLE_CODES:
+                        log(
+                            f"  [gemini:{model}] {code} (attempt {attempt + 1}/{MAX_ATTEMPTS}); "
+                            f"backing off {BACKOFF_SECONDS}s"
+                        )
+                        time.sleep(BACKOFF_SECONDS)
+                    else:
+                        log(f"  [gemini:{model}] error (code {code}): {str(exc)[:80]}")
+                        break
         # All Gemini models/attempts exhausted -> mark Gemini down so the rest of
         # the run goes straight to the Groq fallback instead of re-retrying.
         self._gemini_down = True
@@ -301,34 +315,6 @@ class Vetter:
         raise (last_err if last_err else RuntimeError("Groq failed"))
 
     # -- higher-level calls -----------------------------------------------------
-    def grounding_urls(self, resp) -> list[str]:
-        urls: list[str] = []
-        for cand in resp.candidates or []:
-            gm = getattr(cand, "grounding_metadata", None)
-            if not gm:
-                continue
-            for chunk in gm.grounding_chunks or []:
-                web = getattr(chunk, "web", None)
-                uri = getattr(web, "uri", None)
-                if uri:
-                    urls.append(uri)
-        return list(dict.fromkeys(u for u in urls if u))
-
-    def discover(self, query: str) -> list[str]:
-        """Source A: grounded Gemini search (the ONLY place grounding is used)."""
-        prompt = (
-            f'Search the web for: "{query}"\n\n'
-            "Return ONLY a JSON array of strings: the official application URLs "
-            "(the .edu/.gov/.org program host pages, not aggregator blogs) for new "
-            "2027/2028 opportunities matching the query. If none, return []."
-        )
-        resp = self.gemini_generate(prompt, system=None, grounding=True, fallback_ungrounded=False)
-        parsed = extract_json_array(resp.text or "")
-        urls = [u for u in (parsed or []) if isinstance(u, str) and u.startswith("http")]
-        if not urls:
-            urls = self.grounding_urls(resp)
-        return urls
-
     def resolve_official(self, post_url: str, candidates: list[str]) -> str | None:
         """Source B: pick the official URL from candidate links. Works without
         Gemini via heuristics (so RSS keeps yielding even when Gemini is down)."""
@@ -355,7 +341,7 @@ class Vetter:
                     "Candidate links:\n" + "\n".join(candidates) + "\n\n"
                     "Return ONLY the chosen URL, or the word NONE if none qualify."
                 )
-                resp = self.gemini_generate(prompt, system=None, grounding=False)
+                resp = self.gemini_generate(prompt, system=None)
                 m = re.search(r"https?://[^\s\"'<>]+", resp.text or "")
                 if m:
                     return m.group(0).rstrip(".,)]}")
@@ -381,7 +367,7 @@ class Vetter:
         primary = "gemini"
         if self.gemini:
             try:
-                resp = self.gemini_generate(prompt, system=self.skill, grounding=False)
+                resp = self.gemini_generate(prompt, system=self.skill)
                 result = extract_json(resp.text or "")
                 if not result:
                     raise ValueError("Gemini returned no parseable JSON")
@@ -446,7 +432,7 @@ class Vetter:
             "session_time (with timezone), registration_link. If none, return []."
         )
         try:
-            resp = self.gemini_generate(prompt, system=None, grounding=False)
+            resp = self.gemini_generate(prompt, system=None)
         except Exception as exc:  # noqa: BLE001
             log(f"  Gemini session extraction failed ({self._error_code(exc)}); using Groq")
             if not self.groq:
@@ -459,6 +445,42 @@ class Vetter:
                 return []
         parsed = extract_json_array(resp.text or "")
         return [s for s in (parsed or []) if isinstance(s, dict)]
+
+
+# ----------------------------------------------------------- DuckDuckGo (Source A)
+def ddg_search(query: str, max_results: int = 8) -> list[str]:
+    """Search the web with DuckDuckGo (no Gemini grounding, no API quota).
+
+    Returns deduplicated, non-social, non-blog URLs from the top results. `ddgs` is
+    imported lazily so feeds.txt/sources.txt still run if it is not installed.
+    """
+    try:
+        from ddgs import DDGS
+    except Exception as exc:  # noqa: BLE001
+        log(f"  ddgs not importable ({exc}); install it via requirements.txt")
+        return []
+
+    urls: list[str] = []
+    for attempt in range(2):
+        try:
+            with DDGS() as ddgs:
+                for r in ddgs.text(query, max_results=max_results):
+                    href = (r.get("href") or r.get("url") or "").strip()
+                    if not href or not href.startswith(("http://", "https://")):
+                        continue
+                    dom = urlparse(href).netloc.lower().replace("www.", "")
+                    if (
+                        not dom
+                        or dom == "duckduckgo.com"
+                        or any(b in dom for b in BLOCKED_DOMAINS)
+                    ):
+                        continue
+                    urls.append(href)
+            break
+        except Exception as exc:  # noqa: BLE001
+            log(f"  ddg search attempt {attempt + 1}/2 failed: {str(exc)[:80]}")
+            time.sleep(2)
+    return list(dict.fromkeys(urls))
 
 
 # ----------------------------------------------------------------------- scraping
@@ -700,31 +722,43 @@ def main() -> None:
     existing = load_existing(supabase)
     log(f"Loaded {len(existing)} existing opportunities for dedup")
 
-    # 1) Discover candidate URLs from all three sources.
+    # 1) Discover candidate URLs from all three sources, each capped by its fair
+    # share of --limit so a large RSS backlog can't crowd out queries.txt.
     candidates: list[tuple[str, str]] = []
 
-    # Cap grounded search queries: hard cap of MAX_SEARCH_QUERIES, plus the
-    # --limit cap (each query yields up to MAX_QUERY_URLS URLs).
-    max_queries = min(len(queries), MAX_SEARCH_QUERIES)
-    if limit:
-        max_queries = min(max_queries, max(1, (limit + MAX_QUERY_URLS - 1) // MAX_QUERY_URLS))
-    log(f"Running up to {max_queries} search quer{'y' if max_queries == 1 else 'ies'}")
+    search_budget, rss_budget, official_budget = source_budgets(limit)
+    log(
+        f"Source budgets (limit={limit or 'unlimited'}): "
+        f"queries <= {search_budget}, feeds <= {rss_budget}, sources <= {official_budget}"
+    )
 
-    for q in queries[:max_queries]:
+    # Source A: DuckDuckGo search across every query in queries.txt (no Gemini quota).
+    search_added = 0
+    for q in queries:
+        if search_budget is not None and search_added >= search_budget:
+            break
         if limit and len(candidates) >= limit:
             break
         log(f"Source A (search): {q}")
         try:
-            urls = vetter.discover(q)
+            urls = ddg_search(q)
         except Exception as exc:  # noqa: BLE001
             log(f"  search error: {exc}")
             continue
+        log(f"  ddg returned {len(urls)} candidate URL(s)")
         for u in urls[:MAX_QUERY_URLS]:
+            if search_budget is not None and search_added >= search_budget:
+                break
             if limit and len(candidates) >= limit:
                 break
             candidates.append((u, "search"))
+            search_added += 1
 
+    # Source B: RSS feeds.
+    rss_added = 0
     for feed_url in feeds:
+        if rss_budget is not None and rss_added >= rss_budget:
+            break
         if limit and len(candidates) >= limit:
             break
         log(f"Source B (rss): {feed_url}")
@@ -732,6 +766,8 @@ def main() -> None:
             entries = fetch_feed_entries(feed_url)
             log(f"  pulled {len(entries)} entries")
             for entry in entries[:MAX_FEED_ENTRIES]:
+                if rss_budget is not None and rss_added >= rss_budget:
+                    break
                 if limit and len(candidates) >= limit:
                     break
                 link = entry.get("link")
@@ -744,13 +780,19 @@ def main() -> None:
                 official = vetter.resolve_official(link, external_links(link, post["links"]))
                 if official:
                     candidates.append((official, "rss"))
+                    rss_added += 1
         except Exception as exc:  # noqa: BLE001
             log(f"  feed error: {exc}")
 
+    # Source C: direct official pages.
+    official_added = 0
     for u in sources:
+        if official_budget is not None and official_added >= official_budget:
+            break
         if limit and len(candidates) >= limit:
             break
         candidates.append((u, "official"))
+        official_added += 1
 
     # 2) De-duplicate candidates within this run (by normalized URL).
     seen: set[str] = set()
