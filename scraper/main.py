@@ -23,7 +23,7 @@ Required environment variables:
   GEMINI_API_KEY             Google AI Studio key (Search grounding enabled)
 
 Optional:
-  GEMINI_MODEL               default: gemini-2.5-flash
+  GEMINI_MODEL               default: gemini-3.8-flash
 
 Usage:
   pip install -r requirements.txt
@@ -33,6 +33,7 @@ Usage:
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -47,8 +48,6 @@ from supabase import create_client
 from google import genai
 from google.genai import types
 
-load_dotenv()
-
 # ------------------------------------------------------------------- paths/config
 SCRAPER_DIR = os.path.dirname(os.path.abspath(__file__))
 SKILL_PATH = os.path.join(SCRAPER_DIR, "..", ".opencode", "skills", "scholarship-vetter", "SKILL.md")
@@ -56,10 +55,16 @@ QUERIES_FILE = os.path.join(SCRAPER_DIR, "queries.txt")
 FEEDS_FILE = os.path.join(SCRAPER_DIR, "feeds.txt")
 SOURCES_FILE = os.path.join(SCRAPER_DIR, "sources.txt")
 
+# Load env vars from the project root .env (SUPABASE_* / GEMINI_*), then allow a
+# scraper-local .env to override. Also fall back to a .env in the current dir.
+load_dotenv(os.path.join(SCRAPER_DIR, "..", ".env"))
+load_dotenv(os.path.join(SCRAPER_DIR, ".env"), override=True)
+load_dotenv()
+
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 
 MAX_TEXT_CHARS = 30000       # cap page text sent to the model
 MAX_QUERY_URLS = 5           # max official URLs kept per discovery query
@@ -382,7 +387,19 @@ def insert_new_sessions(supabase, opp_id: str, sessions) -> int:
 
 # -------------------------------------------------------------------------- main
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Eureka 3-in-1 opportunity scraper")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Max candidate URLs to vet/insert (use a small number for quick test batches).",
+    )
+    args = parser.parse_args()
+    limit = args.limit
+
     log("Eureka 3-in-1 scraper starting")
+    if limit:
+        log(f"Running with --limit {limit}")
     if not GEMINI_API_KEY:
         log("ERROR: GEMINI_API_KEY is not set.")
         sys.exit(1)
@@ -402,6 +419,8 @@ def main() -> None:
     candidates: list[tuple[str, str]] = []
 
     for q in queries:
+        if limit and len(candidates) >= limit:
+            break
         log(f"Source A (search): {q}")
         try:
             urls = vetter.discover(q)
@@ -409,13 +428,19 @@ def main() -> None:
             log(f"  search error: {exc}")
             continue
         for u in urls[:MAX_QUERY_URLS]:
+            if limit and len(candidates) >= limit:
+                break
             candidates.append((u, "search"))
 
     for feed_url in feeds:
+        if limit and len(candidates) >= limit:
+            break
         log(f"Source B (rss): {feed_url}")
         try:
             parsed = feedparser.parse(feed_url)
             for entry in parsed.entries[:MAX_FEED_ENTRIES]:
+                if limit and len(candidates) >= limit:
+                    break
                 link = entry.get("link")
                 if not link:
                     continue
@@ -430,6 +455,8 @@ def main() -> None:
             log(f"  feed error: {exc}")
 
     for u in sources:
+        if limit and len(candidates) >= limit:
+            break
         candidates.append((u, "official"))
 
     # 2) De-duplicate candidates within this run (by normalized URL).
@@ -441,6 +468,9 @@ def main() -> None:
             continue
         seen.add(nu)
         unique.append((url, source))
+
+    if limit:
+        unique = unique[:limit]
 
     discovered = len(unique)
     rejected: list[dict] = []
