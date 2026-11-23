@@ -81,7 +81,7 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
 MAX_TEXT_CHARS = 30000       # cap page text sent to the model
 MAX_QUERY_URLS = 5           # max official URLs kept per discovery query
 MAX_SEARCH_QUERIES = 2       # hard cap on grounded search queries per run (quota)
-MAX_FEED_ENTRIES = 15        # newest entries pulled per RSS feed (daily yield)
+MAX_FEED_ENTRIES = 20        # newest entries pulled per RSS feed (headroom for 10–15/day)
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
@@ -523,7 +523,6 @@ def fetch_feed_entries(feed_url: str) -> list:
                 page = ctx.new_page()
                 resp = page.goto(feed_url, timeout=60000, wait_until="domcontentloaded")
                 body = resp.text() if resp else ""
-                browser.close()
                 if body:
                     parsed = feedparser.parse(body)
                     if getattr(parsed, "entries", None):
