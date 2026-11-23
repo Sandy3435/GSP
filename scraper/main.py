@@ -38,6 +38,7 @@ import json
 import os
 import re
 import sys
+import time
 from urllib.parse import urlparse
 
 import feedparser
@@ -163,18 +164,46 @@ def extract_json_array(text: str):
 
 
 # ------------------------------------------------------------------- Gemini client
+RETRYABLE_CODES = (429, 503)
+BACKOFF_SECONDS = 30        # wait between retries on 429/503
+THROTTLE_SECONDS = 6        # min gap between generate_content calls (free-tier RPM)
+MAX_ATTEMPTS = 3            # attempts per model per mode
+
+# Free-tier model fallback chain (tried in order after the configured model).
+# gemini-2.5-* are deprecated for new accounts; the 3.x "lite" models share the
+# free-tier quota pool and are the best fallbacks.
+FALLBACK_MODELS = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.8-flash"]
+
+
+def _build_model_chain(primary: str) -> list[str]:
+    chain = [primary]
+    for m in FALLBACK_MODELS:
+        if m not in chain:
+            chain.append(m)
+    return chain
+
+
 class Vetter:
-    """Thin wrapper around the google-genai SDK with Search grounding."""
+    """Gemini wrapper with retry/backoff, throttling, model fallback, and a
+    no-grounding fallback so free-tier quota limits degrade gracefully."""
 
     def __init__(self, api_key: str, model: str, skill: str):
         self.client = genai.Client(api_key=api_key)
-        self.model = model
         self.skill = skill
+        self.model_chain = _build_model_chain(model)
+        self._last_call_ts = 0.0
 
-    def call(self, prompt: str, system: str | None, grounding: bool = True):
+    # -- low-level helpers ------------------------------------------------------
+    def _throttle(self) -> None:
+        elapsed = time.monotonic() - self._last_call_ts
+        if elapsed < THROTTLE_SECONDS:
+            time.sleep(THROTTLE_SECONDS - elapsed)
+        self._last_call_ts = time.monotonic()
+
+    def _call_once(self, model: str, prompt: str, system: str | None, grounding: bool):
         tools = [types.Tool(google_search=types.GoogleSearch())] if grounding else None
         return self.client.models.generate_content(
-            model=self.model,
+            model=model,
             contents=prompt,
             config=types.GenerateContentConfig(
                 system_instruction=system,
@@ -183,6 +212,52 @@ class Vetter:
             ),
         )
 
+    @staticmethod
+    def _error_code(exc: Exception) -> int | None:
+        code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+        if code is not None:
+            try:
+                return int(code)
+            except (TypeError, ValueError):
+                pass
+        m = re.search(r"\b(429|503)\b", str(exc))
+        return int(m.group(1)) if m else None
+
+    def generate(self, prompt: str, system: str | None, grounding: bool = True,
+                 fallback_ungrounded: bool = True):
+        """Call Gemini with retries + model fallback.
+
+        If `grounding` is requested and `fallback_ungrounded` is True, a second
+        pass without Search grounding is attempted when the grounded calls hit
+        quota (429), so page-text-only vetting still works.
+        """
+        modes = [True, False] if (grounding and fallback_ungrounded) else ([True] if grounding else [False])
+        last_err: Exception | None = None
+        for mode in modes:
+            for model in self.model_chain:
+                for attempt in range(MAX_ATTEMPTS):
+                    self._throttle()
+                    try:
+                        resp = self._call_once(model, prompt, system, mode)
+                        if grounding and not mode:
+                            log(f"  [{model}] grounding disabled for this call (quota fallback)")
+                        return resp
+                    except Exception as exc:  # noqa: BLE001
+                        last_err = exc
+                        code = self._error_code(exc)
+                        if code in RETRYABLE_CODES:
+                            log(
+                                f"  [{model}] {code} (attempt {attempt + 1}/{MAX_ATTEMPTS}); "
+                                f"backing off {BACKOFF_SECONDS}s"
+                            )
+                            time.sleep(BACKOFF_SECONDS)
+                        else:
+                            # Non-retryable (e.g. 404 model gone) -> try next model.
+                            log(f"  [{model}] error (code {code}): {str(exc)[:80]}")
+                            break
+        raise (last_err if last_err else RuntimeError("all Gemini attempts failed"))
+
+    # -- higher-level calls -----------------------------------------------------
     def grounding_urls(self, resp) -> list[str]:
         urls: list[str] = []
         for cand in resp.candidates or []:
@@ -197,14 +272,15 @@ class Vetter:
         return list(dict.fromkeys(u for u in urls if u))
 
     def discover(self, query: str) -> list[str]:
-        """Source A: use grounded Gemini to surface official URLs for a query."""
+        """Source A: use grounded Gemini to surface official URLs for a query.
+        Grounding is essential here, so no ungrounded fallback."""
         prompt = (
             f'Search the web for: "{query}"\n\n'
             "Return ONLY a JSON array of strings: the official application URLs "
             "(the .edu/.gov/.org program host pages, not aggregator blogs) for new "
             "2027/2028 opportunities matching the query. If none, return []."
         )
-        resp = self.call(prompt, system=None, grounding=True)
+        resp = self.generate(prompt, system=None, grounding=True, fallback_ungrounded=False)
         parsed = extract_json_array(resp.text or "")
         urls = [u for u in (parsed or []) if isinstance(u, str) and u.startswith("http")]
         if not urls:
@@ -224,7 +300,7 @@ class Vetter:
             "Candidate links:\n" + "\n".join(candidates) + "\n\n"
             "Return ONLY the chosen URL, or the word NONE if none qualify."
         )
-        resp = self.call(prompt, system=None, grounding=True)
+        resp = self.generate(prompt, system=None, grounding=True, fallback_ungrounded=True)
         m = re.search(r"https?://[^\s\"'<>]+", resp.text or "")
         if m:
             return m.group(0).rstrip(".,)]}")
@@ -240,7 +316,7 @@ class Vetter:
             'Return ONLY valid JSON: either {"status":"REJECTED","stage":"...","reason":"..."} '
             'or the APPROVED object with "status", "opportunity", and "info_sessions" keys.'
         )
-        resp = self.call(prompt, system=self.skill, grounding=True)
+        resp = self.generate(prompt, system=self.skill, grounding=True, fallback_ungrounded=True)
         return extract_json(resp.text or "")
 
     def extract_sessions(self, url: str, page_text: str) -> list[dict]:
@@ -252,7 +328,7 @@ class Vetter:
             "Return ONLY a JSON array of objects with keys: title, session_date (YYYY-MM-DD), "
             "session_time (with timezone), registration_link. If none, return []."
         )
-        resp = self.call(prompt, system=None, grounding=True)
+        resp = self.generate(prompt, system=None, grounding=True, fallback_ungrounded=True)
         parsed = extract_json_array(resp.text or "")
         return [s for s in (parsed or []) if isinstance(s, dict)]
 
@@ -418,7 +494,14 @@ def main() -> None:
     # 1) Discover candidate URLs from all three sources.
     candidates: list[tuple[str, str]] = []
 
-    for q in queries:
+    # Cap how many search queries run: each query yields up to MAX_QUERY_URLS URLs,
+    # so `limit` candidates need at most ceil(limit / MAX_QUERY_URLS) queries.
+    max_queries = len(queries)
+    if limit:
+        max_queries = max(1, min(max_queries, (limit + MAX_QUERY_URLS - 1) // MAX_QUERY_URLS))
+    log(f"Running up to {max_queries} search quer{'y' if max_queries == 1 else 'ies'}")
+
+    for q in queries[:max_queries]:
         if limit and len(candidates) >= limit:
             break
         log(f"Source A (search): {q}")
