@@ -520,6 +520,36 @@ def external_links(post_url: str, links: list[str]) -> list[str]:
     return list(dict.fromkeys(out))
 
 
+def directory_official_links(page_url: str, links: list[str], max_links: int = 6) -> list[str]:
+    """Extract up to `max_links` official-looking outbound links from a directory
+    hub (listicle or multi-university partner directory) so the individual
+    scholarships/partner portals can be scraped and vetted separately. Prefers
+    .edu/.gov/.ac.uk hosts and program/apply keywords, and drops social, blog, and
+    same-domain links via external_links()."""
+    ext = external_links(page_url, links)
+    if not ext:
+        return []
+
+    def rank(u: str) -> int:
+        dom = urlparse(u).netloc.lower()
+        score = 0
+        if dom.endswith((".edu", ".gov", ".ac.uk", ".ac.nz", ".ac.za", ".edu.au")):
+            score += 4
+        elif dom.endswith((".org", ".net")):
+            score += 2
+        if re.search(
+            r"apply|scholarship|fellowship|grant|internship|program|programme|"
+            r"admission|financial.aid|funding|award|mastercard|scholars",
+            u.lower(),
+        ):
+            score += 2
+        if re.search(r"/(home|about|contact|privacy|terms|login|signup|register)(/|$)|/$", u.lower()):
+            score -= 3
+        return score
+
+    return sorted(ext, key=rank, reverse=True)[:max_links]
+
+
 def fetch_feed_entries(feed_url: str) -> list:
     """Fetch an RSS feed's entries, first with feedparser + a realistic
     User-Agent, then with a Playwright-rendered fetch as a fallback."""
@@ -812,8 +842,21 @@ def main() -> None:
     added_opps = 0
     added_sessions = 0
 
-    # 3) Vet + insert.
-    for url, source in unique:
+    # 3) Vet + insert (queue-based so directory hubs can be unpacked into their
+    # individual scholarships/partner portals and vetted in the same run).
+    queue: list[tuple[str, str]] = list(unique)
+    scraped: set[str] = set()   # normalized URLs already scraped this run
+    unpacked_dirs = 0
+
+    idx = 0
+    while idx < len(queue):
+        url, source = queue[idx]
+        idx += 1
+        nu = normalize_url(url)
+        if not nu or nu in scraped:
+            continue
+        scraped.add(nu)
+
         log(f"Processing [{source}] {url}")
         page = scrape(url)
         if page.get("error"):
@@ -854,6 +897,26 @@ def main() -> None:
             continue
 
         if result.get("status") != "APPROVED":
+            # Rule 0 directory/listicle/umbrella hub: do NOT insert it — unpack its
+            # individual scholarship/partner links and vet each one separately.
+            if result.get("kind") == "DIRECTORY_HUB":
+                unpacked_dirs += 1
+                queued = 0
+                for u in directory_official_links(url, page["links"]):
+                    un = normalize_url(u)
+                    if not un or un in scraped or un in seen:
+                        continue
+                    seen.add(un)
+                    queue.append((u, "hub"))
+                    queued += 1
+                log(f"  -> DIRECTORY HUB: queued {queued} individual link(s) to vet")
+                rejected.append({
+                    "url": url,
+                    "stage": result.get("stage") or "RULE_0",
+                    "reason": result.get("reason") or "directory hub",
+                })
+                continue
+
             rejected.append({
                 "url": url,
                 "stage": result.get("stage") or "REJECTED",
@@ -889,6 +952,7 @@ def main() -> None:
     log("=" * 64)
     log("RUN SUMMARY")
     log(f"  Discovered:              {discovered}")
+    log(f"  Directory hubs unpacked: {unpacked_dirs}")
     log(f"  Rejected:                {len(rejected)}")
     for r in rejected:
         log(f"    - [{r['stage']}] {str(r.get('reason',''))[:90]} :: {str(r.get('url',''))[:70]}")
