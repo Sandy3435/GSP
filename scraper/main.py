@@ -285,7 +285,7 @@ class Vetter:
             raise RuntimeError("Gemini disabled for this run (quota exhausted)")
         last_err: Exception | None = None
         for model in list(self.model_chain):
-            hit_quota = False
+            drop_model = False
             for attempt in range(MAX_ATTEMPTS):
                 self._throttle()
                 try:
@@ -297,8 +297,7 @@ class Vetter:
                     code = self._error_code(exc)
                     if code in RETRYABLE_CODES:
                         self._gemini_fail_streak += 1
-                        if code == 429:
-                            hit_quota = True
+                        drop_model = True
                         log(
                             f"  [gemini:{model}] {code} (attempt {attempt + 1}/{MAX_ATTEMPTS}); "
                             f"backing off {BACKOFF_SECONDS}s"
@@ -311,11 +310,11 @@ class Vetter:
                     else:
                         log(f"  [gemini:{model}] error (code {code}): {str(exc)[:80]}")
                         break
-            # 429 = quota exhausted, which won't recover this run; drop the model so
+            # A model that burned all its retries on 429/503 is unhealthy; drop it so
             # later candidates skip straight to a working model (or Groq).
-            if hit_quota and model in self.model_chain:
+            if drop_model and model in self.model_chain:
                 self.model_chain.remove(model)
-                log(f"  [gemini] dropped {model} from fallback chain (quota exhausted)")
+                log(f"  [gemini] dropped {model} from fallback chain (quota/service errors)")
         # All Gemini models/attempts exhausted -> mark Gemini down so the rest of
         # the run goes straight to the Groq fallback instead of re-retrying.
         self._gemini_down = True
@@ -769,14 +768,21 @@ def main() -> None:
         "--limit",
         type=int,
         default=None,
-        help="Max candidate URLs to vet/insert (use a small number for quick test batches).",
+        help="Target number of new opportunities to add this run (default: unlimited).",
     )
     args = parser.parse_args()
     limit = args.limit
 
+    # `--limit` is the target number of NEW opportunities to add. Discovery collects
+    # ~2x that many candidate pages (directory hubs and duplicates consume roughly
+    # half), and a hard cap of ~3x pages bounds the run so directory unpacking can't
+    # cascade forever.
+    page_budget = limit * 2 if limit else None   # candidate pages to discover
+    safety_cap = limit * 3 if limit else None    # max total pages to vet
+
     log("Eureka 3-in-1 scraper starting")
     if limit:
-        log(f"Running with --limit {limit}")
+        log(f"Running with --limit {limit} (target {limit} new opportunities)")
     if not GEMINI_API_KEY and not GROQ_API_KEY:
         log("ERROR: GEMINI_API_KEY or GROQ_API_KEY must be set.")
         sys.exit(1)
@@ -809,9 +815,9 @@ def main() -> None:
         if nu:
             existing_urls.add(nu)
 
-    search_budget, rss_budget, official_budget = source_budgets(limit)
+    search_budget, rss_budget, official_budget = source_budgets(page_budget)
     log(
-        f"Source budgets (limit={limit or 'unlimited'}): "
+        f"Source budgets (page budget={page_budget or 'unlimited'}): "
         f"queries <= {search_budget}, feeds <= {rss_budget}, sources <= {official_budget}"
     )
 
@@ -832,7 +838,7 @@ def main() -> None:
     for q in queries:
         if search_budget is not None and search_new >= search_budget:
             break
-        if limit and len(candidates) >= limit:
+        if page_budget and len(candidates) >= page_budget:
             break
         log(f"Source A (search): {q}")
         try:
@@ -844,7 +850,7 @@ def main() -> None:
         for u in urls:
             if search_budget is not None and search_new >= search_budget:
                 break
-            if limit and len(candidates) >= limit:
+            if page_budget and len(candidates) >= page_budget:
                 break
             if queue_candidate(u, "search", skip_existing=True):
                 search_new += 1
@@ -854,7 +860,7 @@ def main() -> None:
     for feed_url in feeds:
         if rss_budget is not None and rss_new >= rss_budget:
             break
-        if limit and len(candidates) >= limit:
+        if page_budget and len(candidates) >= page_budget:
             break
         log(f"Source B (rss): {feed_url}")
         try:
@@ -863,7 +869,7 @@ def main() -> None:
             for entry in entries[:MAX_FEED_ENTRIES]:
                 if rss_budget is not None and rss_new >= rss_budget:
                     break
-                if limit and len(candidates) >= limit:
+                if page_budget and len(candidates) >= page_budget:
                     break
                 link = entry.get("link")
                 if not link:
@@ -884,15 +890,14 @@ def main() -> None:
     for u in sources:
         if official_budget is not None and official_new >= official_budget:
             break
-        if limit and len(candidates) >= limit:
+        if page_budget and len(candidates) >= page_budget:
             break
         if queue_candidate(u, "official", skip_existing=False):
             official_new += 1
 
-    # 2) Candidates were deduplicated during discovery; apply the hard cap.
+    # 2) Candidates were deduplicated during discovery (already bounded by the
+    # per-source budgets and the page budget above).
     unique = candidates
-    if limit:
-        unique = unique[:limit]
 
     discovered = len(unique)
     rejected: list[dict] = []
@@ -908,7 +913,9 @@ def main() -> None:
 
     idx = 0
     while idx < len(queue):
-        if limit and processed >= limit:
+        if limit and added_opps >= limit:
+            break
+        if safety_cap and processed >= safety_cap:
             break
         url, source = queue[idx]
         idx += 1
@@ -1012,7 +1019,9 @@ def main() -> None:
     # 4) Summary.
     log("=" * 64)
     log("RUN SUMMARY")
+    log(f"  Target:                  {limit or 'unlimited'}")
     log(f"  Discovered:              {discovered}")
+    log(f"  Pages vetted:            {processed}")
     log(f"  Directory hubs unpacked: {unpacked_dirs}")
     log(f"  Rejected:                {len(rejected)}")
     for r in rejected:
