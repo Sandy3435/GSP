@@ -904,15 +904,19 @@ def main() -> None:
     queue: list[tuple[str, str]] = list(unique)
     scraped: set[str] = set()   # normalized URLs already scraped this run
     unpacked_dirs = 0
+    processed = 0               # total pages scraped+vetted this run (incl. unpacked links)
 
     idx = 0
     while idx < len(queue):
+        if limit and processed >= limit:
+            break
         url, source = queue[idx]
         idx += 1
         nu = normalize_url(url)
         if not nu or nu in scraped:
             continue
         scraped.add(nu)
+        processed += 1
 
         log(f"Processing [{source}] {url}")
         page = scrape(url)
