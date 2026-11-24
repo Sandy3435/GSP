@@ -205,6 +205,7 @@ BACKOFF_SECONDS = 5         # wait between retries on 429/503
 THROTTLE_SECONDS = 6        # min gap between generate_content calls (free-tier RPM)
 GROQ_THROTTLE_SECONDS = 8   # min gap between Groq calls (free-tier tokens-per-minute)
 MAX_ATTEMPTS = 2            # attempts per model (1 retry) so a 503 outage fails over fast
+GEMINI_FAIL_LIMIT = 6       # consecutive 429/503s before disabling Gemini for the rest of the run
 
 # Free-tier model fallback chain (tried in order after the configured model).
 # gemini-2.5-* are deprecated for new accounts; the 3.x "lite" models share the
@@ -235,6 +236,7 @@ class Vetter:
         self.model_chain = _build_model_chain(model)
         self._last_call_ts = 0.0
         self._gemini_down = False
+        self._gemini_fail_streak = 0
 
     # -- low-level helpers ------------------------------------------------------
     def _throttle(self, seconds: int = THROTTLE_SECONDS) -> None:
@@ -274,27 +276,46 @@ class Vetter:
         return int(m.group(1)) if m else None
 
     def gemini_generate(self, prompt: str, system: str | None):
-        """Gemini call with retries + model fallback (raises if all exhausted)."""
+        """Gemini call with retries + model fallback. A model that hits a 429
+        (quota exhausted — permanent) is dropped from the chain, and Gemini is
+        disabled entirely after GEMINI_FAIL_LIMIT consecutive 429/503s, so the
+        pipeline fails over to Groq quickly instead of re-retrying a dead model on
+        every candidate."""
         if self._gemini_down:
             raise RuntimeError("Gemini disabled for this run (quota exhausted)")
         last_err: Exception | None = None
-        for model in self.model_chain:
+        for model in list(self.model_chain):
+            hit_quota = False
             for attempt in range(MAX_ATTEMPTS):
                 self._throttle()
                 try:
-                    return self._gemini_call_once(model, prompt, system)
+                    resp = self._gemini_call_once(model, prompt, system)
+                    self._gemini_fail_streak = 0
+                    return resp
                 except Exception as exc:  # noqa: BLE001
                     last_err = exc
                     code = self._error_code(exc)
                     if code in RETRYABLE_CODES:
+                        self._gemini_fail_streak += 1
+                        if code == 429:
+                            hit_quota = True
                         log(
                             f"  [gemini:{model}] {code} (attempt {attempt + 1}/{MAX_ATTEMPTS}); "
                             f"backing off {BACKOFF_SECONDS}s"
                         )
+                        if self._gemini_fail_streak >= GEMINI_FAIL_LIMIT:
+                            self._gemini_down = True
+                            log("  [gemini] too many quota/service errors; disabling Gemini for this run")
+                            raise RuntimeError("Gemini circuit breaker opened")
                         time.sleep(BACKOFF_SECONDS)
                     else:
                         log(f"  [gemini:{model}] error (code {code}): {str(exc)[:80]}")
                         break
+            # 429 = quota exhausted, which won't recover this run; drop the model so
+            # later candidates skip straight to a working model (or Groq).
+            if hit_quota and model in self.model_chain:
+                self.model_chain.remove(model)
+                log(f"  [gemini] dropped {model} from fallback chain (quota exhausted)")
         # All Gemini models/attempts exhausted -> mark Gemini down so the rest of
         # the run goes straight to the Groq fallback instead of re-retrying.
         self._gemini_down = True
