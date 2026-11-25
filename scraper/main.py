@@ -121,6 +121,7 @@ BLOCKED_DOMAINS = (
     "drive.google.com", "docs.google.com",
     "wordpress.org", "wordpress.com", "medium.com", "blogger.com", "wix.com",
     "squarespace.com", "weebly.com", "tumblr.com", "gravatar.com",
+    "cloudflare.com", "cloudflareinsights.com",
 )
 
 
