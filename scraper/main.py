@@ -1032,6 +1032,22 @@ def main() -> None:
             log("  -> duplicate detected after vetting; skipping")
             continue
 
+        # Known-hub safety net: the LLM may have vetted an aggregator/listicle page
+        # and resolved it to a known umbrella hub's application URL. Reject it.
+        if is_known_hub(opp.get("application_link") or ""):
+            unpacked_dirs += 1
+            queued = 0
+            for u in directory_official_links(url, page["links"]):
+                un = normalize_url(u)
+                if not un or un in scraped or un in seen:
+                    continue
+                seen.add(un)
+                queue.append((u, "hub"))
+                queued += 1
+            log(f"  -> KNOWN HUB (post-vet): queued {queued} individual link(s) to vet")
+            rejected.append({"url": url, "stage": "RULE_0", "reason": "vetted result resolves to a known umbrella hub"})
+            continue
+
         try:
             opp_id = insert_opportunity(supabase, opp)
             n = insert_info_sessions(supabase, opp_id, result.get("info_sessions"))
