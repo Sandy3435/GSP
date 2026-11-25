@@ -262,7 +262,10 @@ class Vetter:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
         return self.groq.chat.completions.create(
-            model=self.groq_model, messages=messages, temperature=0.1,
+            model=self.groq_model,
+            messages=messages,
+            temperature=0.1,
+            max_tokens=900,  # stay under the free-tier 1000 output-tokens/min limit
         )
 
     @staticmethod
