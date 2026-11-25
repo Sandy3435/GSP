@@ -562,6 +562,21 @@ def external_links(post_url: str, links: list[str]) -> list[str]:
     return list(dict.fromkeys(out))
 
 
+# Umbrella / multi-partner hub pages that must NEVER be inserted as a single
+# opportunity. They are always unpacked into their individual partner links, no
+# matter what the LLM vetter says, because these programmes are delivered through
+# many separate universities each running its own application cycle.
+KNOWN_HUBS = (
+    "mastercardfdn.org/all/scholars",
+)
+
+
+def is_known_hub(url: str) -> bool:
+    """True when `url` is a known umbrella/multi-partner hub (never a single opp)."""
+    nu = normalize_url(url)
+    return any(h in nu for h in KNOWN_HUBS)
+
+
 def directory_official_links(page_url: str, links: list[str], max_links: int = 6) -> list[str]:
     """Extract up to `max_links` official-looking outbound links from a directory
     hub (listicle or multi-university partner directory) so the individual
@@ -951,6 +966,21 @@ def main() -> None:
 
         if match:
             log(f"  -> duplicate of existing opportunity {match['id']}; skipping")
+            continue
+
+        # Known umbrella hub: never insert it — always unpack its partner links.
+        if is_known_hub(url):
+            unpacked_dirs += 1
+            queued = 0
+            for u in directory_official_links(url, page["links"]):
+                un = normalize_url(u)
+                if not un or un in scraped or un in seen:
+                    continue
+                seen.add(un)
+                queue.append((u, "hub"))
+                queued += 1
+            log(f"  -> KNOWN HUB: queued {queued} individual link(s) to vet")
+            rejected.append({"url": url, "stage": "RULE_0", "reason": "known umbrella hub (never inserted)"})
             continue
 
         # Full vet.
