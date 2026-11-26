@@ -5,17 +5,20 @@ import {
   deleteOpportunity,
   deleteOpportunityInfoSession,
   deleteService,
+  deleteSourcingItem,
+  addSourcingUrls,
   getCourses,
   getOpportunities,
   getOpportunityInfoSessions,
   getServices,
+  getSourcingItems,
   newContentId,
   saveCourse,
   saveOpportunity,
   saveOpportunityInfoSession,
   saveService,
 } from '../lib/store'
-import type { OpportunityInfoSession } from '../lib/store'
+import type { OpportunityInfoSession, SourcingItem, SourcingStatus } from '../lib/store'
 import {
   getBookings,
   getInfoSessions,
@@ -46,6 +49,7 @@ import { SectionHeader, Toggle } from '../components/ui'
 type AdminTab =
   | 'overview'
   | 'opportunities'
+  | 'sourcing'
   | 'courses'
   | 'sprints'
   | 'sessions'
@@ -57,6 +61,7 @@ type AdminTab =
 const tabs: { id: AdminTab; label: string; icon: string }[] = [
   { id: 'overview', label: 'Overview', icon: 'dashboard' },
   { id: 'opportunities', label: 'Opportunities', icon: 'explore' },
+  { id: 'sourcing', label: 'Sourcing', icon: 'travel_explore' },
   { id: 'courses', label: 'Courses', icon: 'auto_stories' },
   { id: 'sprints', label: 'Sprints', icon: 'school' },
   { id: 'sessions', label: 'Live Sessions', icon: 'sensors' },
@@ -83,6 +88,7 @@ export default function AdminPage() {
   const [opps, setOpps] = useState<Opportunity[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [services, setServices] = useState<Service[]>([])
+  const [sourcing, setSourcing] = useState<SourcingItem[]>([])
   const [users, setUsers] = useState<AuthUser[]>([])
   const [sprints, setSprints] = useState<ReturnType<typeof getSprints>>([])
   const [sessions, setSessions] = useState<LiveSession[]>([])
@@ -92,6 +98,7 @@ export default function AdminPage() {
     getOpportunities().then(setOpps)
     getCourses().then(setCourses)
     getServices().then(setServices)
+    getSourcingItems().then(setSourcing)
     listUsers().then(setUsers)
     setSprints(getSprints())
     setSessions(getInfoSessions())
@@ -164,6 +171,7 @@ export default function AdminPage() {
         />
       )}
       {tab === 'opportunities' && <OpportunitiesAdmin opps={opps} onChange={reload} />}
+      {tab === 'sourcing' && <SourcingAdmin items={sourcing} onChange={reload} />}
       {tab === 'courses' && <CoursesAdmin courses={courses} onChange={reload} />}
       {tab === 'sprints' && (
         <SprintsAdmin
@@ -525,6 +533,92 @@ function OpportunitiesAdmin({ opps, onChange }: { opps: Opportunity[]; onChange:
           </div>
         ))}
         {opps.length === 0 && <Empty text="No opportunities yet. Add the first one." />}
+      </div>
+    </div>
+  )
+}
+
+/* -------------------------------- Sourcing -------------------------------- */
+
+function SourcingAdmin({
+  items,
+  onChange,
+}: {
+  items: SourcingItem[]
+  onChange: () => void
+}) {
+  const [urls, setUrls] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const submit = async () => {
+    if (!urls.trim()) return
+    setBusy(true)
+    const list = urls.split('\n').map((s) => s.trim()).filter(Boolean)
+    await addSourcingUrls(list)
+    setUrls('')
+    setBusy(false)
+    onChange()
+  }
+
+  const statusTone: Record<SourcingStatus, string> = {
+    pending: 'bg-surface-container-high text-on-surface-variant',
+    open: 'bg-secondary-container text-on-secondary-container',
+    closed: 'bg-tertiary-container text-on-tertiary-container',
+    rejected: 'bg-error-container text-error',
+    error: 'bg-error-container text-error',
+  }
+
+  return (
+    <div className="flex flex-col gap-space-md">
+      <SectionHeader icon="travel_explore" title={`Sourcing (${items.length})`} />
+
+      <div className="flex flex-col gap-space-sm rounded-2xl bg-surface-container-lowest p-space-lg shadow-sm">
+        <p className="font-body-sm text-body-sm text-on-surface-variant">
+          Paste opportunity URLs you find online (one per line). The scraper vets each
+          one, adds it if applications are open, or keeps it on its radar and re-checks
+          it every run.
+        </p>
+        <textarea
+          value={urls}
+          onChange={(e) => setUrls(e.target.value)}
+          rows={4}
+          placeholder={'https://example.org/scholarship\nhttps://example.org/fellowship'}
+          className="w-full resize-none rounded-xl bg-surface-container-low p-3 font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary/40"
+        />
+        <button
+          type="button"
+          onClick={submit}
+          disabled={busy || !urls.trim()}
+          className="flex h-10 items-center justify-center gap-2 rounded-xl bg-primary-container font-label-sm text-label-sm font-bold text-on-primary disabled:opacity-50"
+        >
+          <span className="material-symbols-outlined text-[18px]">add_link</span>
+          {busy ? 'Adding…' : 'Add to sourcing'}
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {items.map((s) => (
+          <div key={s.id} className="flex items-start justify-between gap-2 rounded-xl bg-surface-container-lowest p-space-md shadow-sm">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <p className="truncate font-label-md text-label-md font-bold text-on-surface">{s.title || s.url}</p>
+                <span className={`rounded-full px-2 py-0.5 font-label-xs text-[10px] font-bold capitalize ${statusTone[s.status]}`}>
+                  {s.status}
+                </span>
+              </div>
+              <p className="truncate font-label-xs text-label-xs text-on-surface-variant">{s.url}</p>
+              {s.lastChecked && (
+                <p className="font-label-xs text-[10px] text-on-surface-variant">
+                  last checked {new Date(s.lastChecked).toLocaleString()}
+                </p>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <IconButton icon="delete" label="Remove" danger onClick={async () => { await deleteSourcingItem(s.id); onChange() }} />
+            </div>
+          </div>
+        ))}
+        {items.length === 0 && <Empty text="No sourced URLs yet. Paste URLs above to start your radar list." />}
       </div>
     </div>
   )

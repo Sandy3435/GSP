@@ -391,5 +391,27 @@ drop policy if exists "info_sessions admin write" on public.info_sessions;
 create policy "info_sessions admin write" on public.info_sessions
   for all using (public.is_admin()) with check (public.is_admin());
 
+-- ------------------------------------------------------------- sourcing list --
+-- URLs the admin wants the scraper to vet and keep on its radar. The scraper
+-- re-checks `pending` / `closed` / `error` items each run, inserts open ones
+-- into `opportunities`, and updates the status accordingly.
+create table if not exists public.sourcing (
+  id uuid primary key default gen_random_uuid(),
+  url text not null,
+  title text default '',
+  status text default 'pending'
+    check (status in ('pending', 'open', 'closed', 'rejected', 'error')),
+  notes text default '',
+  last_checked timestamptz,
+  added_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz default now()
+);
+
+alter table public.sourcing enable row level security;
+
+drop policy if exists "sourcing admin all" on public.sourcing;
+create policy "sourcing admin all" on public.sourcing
+  for all using (public.is_admin()) with check (public.is_admin());
+
 -- ------------------------------------------------------------ verification --
 -- select id, email, name, role from public.profiles order by created_at;

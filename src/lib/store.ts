@@ -534,6 +534,61 @@ export async function deleteOpportunityInfoSession(id: string): Promise<void> {
   )
 }
 
+// ---------- Sourcing list (admin-fed URLs the scraper vets and watches) ----------
+export type SourcingStatus = 'pending' | 'open' | 'closed' | 'rejected' | 'error'
+
+export interface SourcingItem {
+  id: string
+  url: string
+  title: string
+  status: SourcingStatus
+  notes: string
+  lastChecked?: string
+  createdAt: string
+}
+
+function mapSourcing(r: Row): SourcingItem {
+  return {
+    id: r.id as string,
+    url: (r.url as string) ?? '',
+    title: (r.title as string) ?? '',
+    status: (r.status as SourcingStatus) ?? 'pending',
+    notes: (r.notes as string) ?? '',
+    lastChecked: (r.last_checked as string) ?? undefined,
+    createdAt: (r.created_at as string) ?? '',
+  }
+}
+
+export async function getSourcingItems(): Promise<SourcingItem[]> {
+  if (!isSupabaseConfigured) return []
+  const { data, error } = await supabase
+    .from('sourcing')
+    .select('*')
+    .order('created_at', { ascending: false })
+  if (error) {
+    console.error('sourcing read:', error.message)
+    return []
+  }
+  return (data ?? []).map((r) => mapSourcing(r as Row))
+}
+
+export async function addSourcingUrls(urls: string[]): Promise<number> {
+  const clean = [...new Set(urls.map((u) => u.trim()).filter((u) => u.startsWith('http')))]
+  if (!clean.length) return 0
+  if (!isSupabaseConfigured) return 0
+  const { error } = await supabase.from('sourcing').insert(
+    clean.map((url) => ({ url, status: 'pending' })),
+  )
+  if (error) console.error('sourcing insert:', error.message)
+  return clean.length
+}
+
+export async function deleteSourcingItem(id: string): Promise<void> {
+  if (!isSupabaseConfigured) return
+  const { error } = await supabase.from('sourcing').delete().eq('id', id)
+  if (error) console.error('sourcing delete:', error.message)
+}
+
 export function resetStore(): void {
   localStorage.removeItem(OPPS_KEY)
   localStorage.removeItem(COURSES_KEY)

@@ -660,6 +660,27 @@ def load_existing(supabase) -> list[dict]:
     return res.data or []
 
 
+def load_sourcing(supabase) -> list[dict]:
+    """Admin-added URLs to (re)check this run: anything not permanently resolved."""
+    try:
+        res = supabase.table("sourcing").select("id,url,status").execute()
+    except Exception as exc:  # noqa: BLE001 - table not migrated yet
+        log(f"  sourcing table unavailable ({str(exc)[:60]}); run v1_schema.sql")
+        return []
+    return [r for r in (res.data or []) if r.get("status") in ("pending", "closed", "error")]
+
+
+def mark_sourcing(supabase, sourcing_id: str, status: str) -> None:
+    """Update a sourcing row's status + last-checked timestamp."""
+    try:
+        supabase.table("sourcing").update({
+            "status": status,
+            "last_checked": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }).eq("id", sourcing_id).execute()
+    except Exception as exc:  # noqa: BLE001
+        log(f"  sourcing status update error: {str(exc)[:60]}")
+
+
 def find_existing(existing: list[dict], title: str, app_link: str) -> dict | None:
     nt = normalize_title(title)
     nu = normalize_url(app_link)
@@ -819,6 +840,9 @@ def main() -> None:
 
     existing = load_existing(supabase)
     log(f"Loaded {len(existing)} existing opportunities for dedup")
+    sourcing = load_sourcing(supabase)
+    if sourcing:
+        log(f"Loaded {len(sourcing)} sourcing URL(s) to (re)check")
 
     # 1) Discover candidate URLs from all three sources, each capped by its fair
     # share of --limit so a large RSS backlog can't crowd out queries.txt.
@@ -1065,6 +1089,79 @@ def main() -> None:
             log(f"  -> ADDED opportunity {opp_id} (+{n} info session(s))")
         except Exception as exc:  # noqa: BLE001
             rejected.append({"url": url, "stage": "INSERT", "reason": str(exc)})
+
+    # 3b) Process the admin sourcing list: vet each URL, insert open ones, and mark
+    # the rest for re-check so the admin can keep feeding URLs it finds online.
+    for s in sourcing:
+        url = s["url"]
+        log(f"Processing [sourcing] {url}")
+        page = scrape(url)
+        if page.get("error"):
+            mark_sourcing(supabase, s["id"], "error")
+            log(f"  -> sourcing scrape error: {page['error'][:60]}")
+            continue
+
+        # Already tracked as an opportunity -> resolved open.
+        if find_existing(existing, page["title"], url):
+            mark_sourcing(supabase, s["id"], "open")
+            log("  -> sourcing: already exists; marked open")
+            continue
+
+        # Known umbrella hub -> reject (never insert).
+        if is_known_hub(url):
+            mark_sourcing(supabase, s["id"], "rejected")
+            log("  -> sourcing: known hub; rejected")
+            continue
+
+        try:
+            result = vetter.vet(url, page["text"])
+        except Exception as exc:  # noqa: BLE001
+            mark_sourcing(supabase, s["id"], "error")
+            log(f"  -> sourcing vet error: {str(exc)[:60]}")
+            continue
+
+        if not result:
+            mark_sourcing(supabase, s["id"], "error")
+            log("  -> sourcing: no valid vet output")
+            continue
+
+        if result.get("status") != "APPROVED":
+            status = "closed" if result.get("kind") == "NOT_OPEN" else "rejected"
+            mark_sourcing(supabase, s["id"], status)
+            log(f"  -> sourcing: {status} ({str(result.get('reason'))[:60]})")
+            continue
+
+        opp = result.get("opportunity") or {}
+        if not opp.get("title"):
+            mark_sourcing(supabase, s["id"], "error")
+            log("  -> sourcing: missing title")
+            continue
+
+        # Final dedup + known-hub safety net on the vetted result.
+        if find_existing(existing, opp.get("title"), opp.get("application_link") or url):
+            mark_sourcing(supabase, s["id"], "open")
+            log("  -> sourcing: duplicate after vetting; marked open")
+            continue
+        if is_known_hub(opp.get("application_link") or ""):
+            mark_sourcing(supabase, s["id"], "rejected")
+            log("  -> sourcing: vetted result resolves to known hub; rejected")
+            continue
+
+        try:
+            opp_id = insert_opportunity(supabase, opp)
+            n = insert_info_sessions(supabase, opp_id, result.get("info_sessions"))
+            added_opps += 1
+            added_sessions += n
+            existing.append({
+                "id": opp_id,
+                "title": opp.get("title"),
+                "application_link": opp.get("application_link") or url,
+            })
+            mark_sourcing(supabase, s["id"], "open")
+            log(f"  -> sourcing: ADDED opportunity {opp_id} (+{n} info session(s))")
+        except Exception as exc:  # noqa: BLE001
+            mark_sourcing(supabase, s["id"], "error")
+            log(f"  -> sourcing insert error: {str(exc)[:60]}")
 
     # 4) Summary.
     log("=" * 64)
